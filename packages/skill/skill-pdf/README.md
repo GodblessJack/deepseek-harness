@@ -52,7 +52,7 @@ With neither, the script exits with code 1 and prints the install hint above on 
 
 ### Observable success and failures
 
-Mounting the plugin makes `pdf` appear in the catalog and loadable by name; disposal removes it. A successful extraction writes extracted text to stdout (exit 0). A PDF no engine can parse fails loudly with the engine error on stderr (exit 1 after both engines fail); the model reports the failure instead of guessing content.
+Mounting the plugin makes `pdf` appear in the catalog and loadable by name; disposal removes it. A successful extraction writes extracted text to stdout (exit 0); on the pypdf path only pages with extractable text carry a `===== Page N =====` section. A page range that selects no pages, or a host with no engine, exits 1 with the reason on stderr. A PDF whose extracted window holds no text (scanned or image-only), or one every installed engine fails on, exits 2 with the diagnosis on stderr; the model reports the failure instead of guessing content.
 
 -----
 
@@ -68,7 +68,7 @@ This section explains how the bundled provider is wired; the observable behavior
 
 The provider is an immutable, synchronously registered skill source: it registers one fixed candidate at the bundled skill rank (600) under the provider name `pdf`, exposes its packaged `assets/` directory as the skill's directory resource base, and reads the skill body from the packaged `assets/pdf.md` file on every load. The model resolves `scripts/pdf2text.py` against the resource base rendered by the skill loader.
 
-The script prefers `pypdf`, falls back to system `pdftotext`, and never silently swallows failure: missing engines, parse failures, password-protected PDFs, and zero-text extraction each produce a stderr diagnosis with a distinct exit code (0 ok, 1 usage/env, 2 no text).
+The script prefers `pypdf`, falls back to system `pdftotext`, and never silently swallows failure: a missing engine or a page window that selects no pages exits 1 with the reason on stderr, while a text-free window (scanned or image-only PDF) and engines that fail — unparsable or password-protected files — exit 2 with a per-engine diagnosis on stderr. The pypdf path checks text per page and emits `===== Page N =====` sections only for pages that have text.
 
 ### Source map
 
@@ -111,8 +111,8 @@ Its catalog entry and any loaded body change the provider KV prefix at their ins
 These limits define what the bundled provider does not do. They are current package constraints, not a task backlog.
 
 - **One fixed skill, no runtime customization** — the provider contributes exactly the `pdf` skill; deployments wanting different extraction behavior author their own skill instead.
-- **OCR is out of scope** — scanned or image-only PDFs have no extractable text; exit code 2 (or page markers with no body text, see below) is the loud stop.
-- **pypdf zero-text nuance** — the pypdf path always emits `===== Page N =====` markers, so an image-only PDF still exits 0 with markers and no body text when pypdf is the engine; the markers-only output is the no-text signal on that path. Exit code 2 fires on the pdftotext path.
+- **OCR is out of scope** — scanned or image-only PDFs have no extractable text; exit code 2 with the no-text diagnosis is the loud stop.
+- **Empty-window detection lives on the pypdf path** — the exit-1 `page range … selects no pages` diagnosis needs the document's page count, which only pypdf reports; on pdftotext-only hosts an out-of-range window surfaces as that engine's own wrong-page-range error (exit 2). An inverted range (`--first` after `--last`) is still caught before any engine runs.
 
 <a id="dev-note"></a>
 ### Dev Note
