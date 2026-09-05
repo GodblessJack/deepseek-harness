@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-本包渲染对话 UI 中与附件相关的一切：composer 下的待发送草稿图片、全视口拖放邀请层、Chat 与 Trajectory 中的持久图片，以及查看原图的灯箱。它是纯呈现层——附件数据、图片加载与回调都经声明槽位来自 conversation 包。需要 DeepSeek Chat 风格的图片体验时选择它；非图片文件在此没有任何表面。
+本包渲染对话 UI 中与附件相关的一切：composer 下的待发送草稿栏（图片缩略图与 PDF 文件 chip）、全视口拖放邀请层、Chat 与 Trajectory 中的持久图片，以及查看原图的灯箱。它是纯呈现层——附件数据、图片加载与回调都经声明槽位来自 conversation 包。需要 DeepSeek Chat 风格的图片体验时选择它；文件草稿仅呈现名称与大小，不带文档预览。
 
 ## 目录
 
@@ -25,11 +25,11 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
-与 [`ui-conversation`](../ui-conversation/README.zh.md) 一起挂载本插件；它等待 conversation 包的槽位声明，并把自身表面注册进这些槽位。用户随即看到：带逐图删除与点击打开的草稿图片栏、带上限说明的拖放遮罩、按数量定尺寸的消息图片，以及支持 Escape／遮罩／关闭按钮的灯箱。
+与 [`ui-conversation`](../ui-conversation/README.zh.md) 一起挂载本插件；它等待 conversation 包的槽位声明，并把自身表面注册进这些槽位。用户随即看到：带逐图删除与点击打开的草稿栏（PDF chip 上为逐文件删除）、带上限说明的拖放遮罩、按数量定尺寸的消息图片，以及支持 Escape／遮罩／关闭按钮的灯箱。
 
-### 草稿图片
+### 草稿附件
 
-草稿图片以固定 64px 缩略图呈现在一行横向滚动条中；溢出隐藏时由边缘箭头翻页，滚动条保持隐藏。新增条目滚动到栏尾展示，删除保持原位，单击经持有方的 `onOpen` 打开原图。
+草稿图片以固定 64px 缩略图呈现在一行横向滚动条中；溢出隐藏时由边缘箭头翻页，滚动条保持隐藏。新增条目滚动到栏尾展示，删除保持原位，单击经持有方的 `onOpen` 打开原图。PDF 草稿文件在同一行以携带名称与大小文本的 chip 呈现——没有预览、没有打开动作——同样的悬停显形删除经持有方的 `onRemoveFile` 路由。
 
 ### 消息图片与灯箱
 
@@ -51,8 +51,8 @@ kind: "package-reference"
 
 | 文件 | 职责 |
 |---|---|
-| [`src/client/ComposerAttachments.tsx`](src/client/ComposerAttachments.tsx) | 草稿图片栏＋拖放遮罩的组装 |
-| [`src/AttachmentRail.tsx`](src/AttachmentRail.tsx) | 滚动缩略图栏、滚轮转换、边缘箭头 |
+| [`src/client/ComposerAttachments.tsx`](src/client/ComposerAttachments.tsx) | 草稿附件栏＋拖放遮罩的组装 |
+| [`src/AttachmentRail.tsx`](src/AttachmentRail.tsx) | 滚动附件栏（图片缩略图、文件 chip）、滚轮转换、边缘箭头 |
 | [`src/client/MessageImages.tsx`](src/client/MessageImages.tsx) | 每消息画廊＋灯箱的组装 |
 | [`src/MessageImage.tsx`](src/MessageImage.tsx) | 单图尺寸、加载／重试、点击打开；本地提交回显预览直接显示其 object URL |
 | [`src/ImageLightbox.tsx`](src/ImageLightbox.tsx) | 铺在共享遮罩上的文档级模态预览 |
@@ -89,7 +89,7 @@ kind: "package-reference"
 
 这些限制界定了当前附件表面。它们是包约束，不是通用图片查看器对比或任务积压。
 
-- **仅支持图片**——附件栏只渲染图片草稿；composer 的 PDF 草稿（`kind: 'file'`）暂不渲染，DeepSeek Chat 风格的文件卡片和上传进度待其呈现落地。
+- **文件 chip 不带文档预览与进度**——PDF 草稿以名称＋大小的 chip 呈现；DeepSeek Chat 风格的文件卡片、文档预览与上传进度待其呈现落地。
 - **灯箱无缩放与下载**——预览仅以适配视口的尺寸渲染原图。
 - **灯箱不锁定焦点**——它设置 `aria-modal` 并在关闭时归还焦点，但 Tab 仍可移动到背后的页面。
 

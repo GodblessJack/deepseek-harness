@@ -259,6 +259,7 @@ export function apply(ctx: Context): void {
           addFiles: undefined,
           removeFile: undefined,
           draftImages: undefined,
+          draftFiles: undefined,
           resolveSubmitMode: (running, gesture, steeringAvailable) =>
             submissionPolicy.resolve(running, gesture, steeringAvailable),
           toggleCommandMenu: undefined,
@@ -317,6 +318,7 @@ export function apply(ctx: Context): void {
           shell.removeFile(id)
         },
         draftImages: ids => conversation.draftImages(ids),
+        draftFiles: ids => conversation.draftFiles(ids),
         resolveSubmitMode: (running, gesture, steeringAvailable) =>
           submissionPolicy.resolve(running, gesture, steeringAvailable),
         toggleCommandMenu: inputTriggers === undefined

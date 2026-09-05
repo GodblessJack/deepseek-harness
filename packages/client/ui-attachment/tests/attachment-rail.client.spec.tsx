@@ -32,7 +32,7 @@ const labels: AttachmentRailLabels = {
 }
 
 function item(id: string): AttachmentRailItem {
-  return { id, previewUrl: `blob:${id}`, alt: `${id}.png`, removeLabel: `移除图片 ${id}.png` }
+  return { kind: 'image', id, previewUrl: `blob:${id}`, alt: `${id}.png`, removeLabel: `移除图片 ${id}.png` }
 }
 
 /** Stub the rail's scroll geometry (jsdom reports 0 for every metric). */
@@ -175,5 +175,25 @@ describe('AttachmentRail', () => {
     )
     // Removal keeps the position; only growth jumps to the end.
     expect(rail.scrollLeft).toBe(200)
+  })
+
+  it('renders a file chip with name and size, no preview, and routes its remove', () => {
+    const onOpen = vi.fn()
+    const onRemove = vi.fn()
+    const fileItem: AttachmentRailItem = {
+      kind: 'file',
+      id: 'f1',
+      name: 'report.pdf',
+      sizeText: '1.5 MB',
+      removeLabel: '移除文件 report.pdf',
+    }
+    const view = render(<AttachmentRail items={[fileItem]} labels={labels} onOpen={onOpen} onRemove={onRemove} />)
+    const rail = view.getByRole('group', { name: '待发送图片' })
+    expect(rail.querySelector('img')).toBeNull()
+    expect(rail.textContent).toContain('report.pdf')
+    expect(rail.textContent).toContain('1.5 MB')
+    fireEvent.click(view.getByRole('button', { name: '移除文件 report.pdf' }))
+    expect(onRemove).toHaveBeenCalledWith(fileItem)
+    expect(onOpen).not.toHaveBeenCalled()
   })
 })

@@ -281,6 +281,7 @@ export interface ComposerBarInjected {
   addFiles: ((files: readonly File[]) => string | null) | undefined
   removeFile: ((id: DraftAttachmentId) => void) | undefined
   draftImages: ((ids: readonly DraftAttachmentId[]) => readonly ComposerAttachment[]) | undefined
+  draftFiles: ((ids: readonly DraftAttachmentId[]) => readonly FileDraftAttachment[]) | undefined
   resolveSubmitMode: (
     running: boolean,
     gesture: ComposerSubmitGesture,

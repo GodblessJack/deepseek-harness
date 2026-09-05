@@ -44,6 +44,8 @@ View 选择规则固定：有效且已注册的持久化选择优先，其次是
 
 普通 composer 运行时，如果草稿为空或输入不可用，主指针操作保持为 Stop。可提交的文字或附件会把同一位置切换为 Queue Send；清空或成功提交草稿后恢复 Stop。繁忙态 Enter 设置继续选择 Queue 或 Steer 键盘操作。可继续 subagent 保留独立的 Send 与 Stop 操作（[决策](../../../.agents/notes/implemented/bug-fix/2026-08-20-running-draft-primary-send.zh.md)）。
 
+工具栏的回形针按钮打开系统文件选择器（`image/png,image/jpeg,image/webp,image/gif,application/pdf`，可多选），并按 PDF 特征拆分一次选择：PDF（媒体类型或 `.pdf` 文件名）进入文件草稿通道，拒绝文案经 composer toast 呈现；其余文件走图片摄入及其限额预检；选择器在每次选择后重置 value，重复选同一文件仍会触发。没有任何 claim 携带文件载荷通道，因此在挂有 PDF 草稿时提交已认领命令会被预先拒绝——一条提示，草稿、claim 与文件全部保留——而不是让文件悄悄搭乘下一条普通消息。
+
 <a id="temporary-composer-entries"></a>
 ## 临时 composer entry
 

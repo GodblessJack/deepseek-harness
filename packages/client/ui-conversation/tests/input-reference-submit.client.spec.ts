@@ -16,6 +16,7 @@ const commandImages = {
   release: () => {},
   unsupportedNotice: (token: string) => `${token.trim()} images-unsupported`,
 }
+const commandFiles = { unsupportedNotice: (token: string) => `${token.trim()} files-unsupported` }
 
 function chip(shell: SessionInputShell): void {
   shell.setDraft('@res')
@@ -39,6 +40,7 @@ describe('reference submission', () => {
       actx: {} as Context,
       defaultSink: vi.fn(),
       commandImages,
+      commandFiles,
     })
     first.bindMirror(mirror)
     first.setDraft('@res')
@@ -63,6 +65,7 @@ describe('reference submission', () => {
       actx: {} as Context,
       defaultSink: sink,
       commandImages,
+      commandFiles,
     })
     restored.setDraft(mirror.mock.calls.at(-1)?.[0] as string)
     restored.submit()
@@ -92,6 +95,7 @@ describe('reference submission', () => {
       inputTriggers: () => inputTriggers,
       defaultSink: sink,
       commandImages,
+      commandFiles,
     })
     chip(shell)
     expect(shell.snapshot).toMatchObject({
@@ -138,6 +142,7 @@ describe('reference submission', () => {
       inputTriggers: () => inputTriggers,
       defaultSink: sink,
       commandImages,
+      commandFiles,
     })
     chip(shell)
     shell.submit()
@@ -162,6 +167,7 @@ describe('reference submission', () => {
         return new Promise<SubmitOutcome>(() => {})
       },
       commandImages,
+      commandFiles,
     })
     shell.setDraft('send this')
     shell.submit()
@@ -179,6 +185,7 @@ describe('reference submission', () => {
       actx: {} as Context,
       defaultSink: () => Promise.resolve({ kind: 'error' }),
       commandImages,
+      commandFiles,
     })
     shell.setDraft('retry this')
     shell.submit()
@@ -195,6 +202,7 @@ describe('reference submission', () => {
       actx: {} as Context,
       defaultSink: () => new Promise<SubmitOutcome>((resolve) => { settlements.push(resolve) }),
       commandImages,
+      commandFiles,
     })
     shell.setDraft('first')
     shell.submit()
@@ -217,6 +225,7 @@ describe('submit transaction hardening', () => {
       actx: {} as Context,
       defaultSink: sink,
       commandImages,
+      commandFiles,
     })
     expect(shell.addImages(['img-1' as DraftAttachmentId])).toBe(true)
     shell.submit('queue')
@@ -238,6 +247,7 @@ describe('submit transaction hardening', () => {
       actx: {} as Context,
       defaultSink: sink,
       commandImages,
+      commandFiles,
     })
     const imageId = 'img-1' as DraftAttachmentId
     shell.addImages([imageId])
@@ -258,6 +268,7 @@ describe('submit transaction hardening', () => {
         return new Promise<SubmitOutcome>(() => {})
       },
       commandImages,
+      commandFiles,
     })
     shell.addImages([imageId])
     shell.submit()
@@ -274,6 +285,7 @@ describe('submit transaction hardening', () => {
       inputTriggers: () => ({ track, lexicon } as unknown as InputTriggerController),
       defaultSink: vi.fn(),
       commandImages,
+      commandFiles,
     })
     shell.setDraft('@sr')
     const applied = shell.insertText('@src/', { start: 0, end: 3, draftRev: shell.snapshot.draftRev }, true)

@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent, MouseEvent, ReactNode } from 'react'
 import clsx from 'clsx'
 import {
-  IconPlusOutline16, IconWarningOutline16, Toast, Tooltip,
+  IconPaperclipOutline16, IconPlusOutline16, IconWarningOutline16, Toast, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 // Type-only: the `plan` projection key merge (the TodoDock posture — the
 // composer reads a host-computed value; the domain owns the key).
@@ -39,8 +39,12 @@ import css from './InputBar.module.css'
 
 export type InputBarProps = ComposerBarProps
 
+/** The picker's file dialog filter: the four image media types plus PDF. */
+const ATTACHMENT_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,application/pdf'
+
 export function InputBar({
-  useSession, useInput, inputActions, keyboard, addImages, removeImage, removeFile, draftImages,
+  useSession, useInput, inputActions, keyboard, addImages, removeImage, addFiles, removeFile,
+  draftImages, draftFiles,
   resolveSubmitMode, toggleCommandMenu, stop, command, t,
   renderSlot, useNotices, useLexicon, useMenuLauncher,
   useProjection, sessionId, variant, disabled: inert = false, blocked,
@@ -65,9 +69,18 @@ export function InputBar({
   const live = input !== undefined && keyboard !== undefined && inputActions !== undefined
   const draft = input?.draft ?? ''
   const editor = keyboard?.editor ?? null
-  const attachments = useMemo(
+  const imageAttachments = useMemo(
     () => input === undefined || draftImages === undefined ? [] : draftImages(input.imageIds),
     [draftImages, input?.imageIds],
+  )
+  const fileAttachments = useMemo(
+    () => input === undefined || draftFiles === undefined ? [] : draftFiles(input.fileIds),
+    [draftFiles, input?.fileIds],
+  )
+  // Images first, files after: two draft channels have no shared order.
+  const attachments = useMemo(
+    () => [...imageAttachments, ...fileAttachments],
+    [imageAttachments, fileAttachments],
   )
   const empty = draft.trim() === '' && attachments.length === 0
   // Transient error banner (machine notices, image-intake rejections, and
@@ -134,10 +147,10 @@ export function InputBar({
 
   useEffect(() => {
     if (input === undefined || inputActions === undefined) return
-    if (attachments.length !== input.imageIds.length) {
-      inputActions.pruneImages(attachments.map(attachment => attachment.id))
+    if (imageAttachments.length !== input.imageIds.length) {
+      inputActions.pruneImages(imageAttachments.map(attachment => attachment.id))
     }
-  }, [attachments, input?.imageIds, inputActions])
+  }, [imageAttachments, input?.imageIds, inputActions])
 
   // Scroll the draft scrollport the minimum that brings the selection focus
   // into view — the browser's own behavior for typing, performed for the
@@ -225,13 +238,13 @@ export function InputBar({
         if (files.some(file => !(imageLimits.mediaTypes as readonly string[]).includes(file.type))) {
           return addImages(files)
         }
-        if (attachments.length + files.length > imageLimits.maxImagesPerMessage) {
+        if (imageAttachments.length + files.length > imageLimits.maxImagesPerMessage) {
           return t('image.tooMany', { count: imageLimits.maxImagesPerMessage })
         }
         if (files.some(file => file.size > imageLimits.maxImageBytes)) {
           return t('image.fileTooLarge', { size: imageSizeText(imageLimits.maxImageBytes) })
         }
-        const total = attachments.reduce((sum, attachment) => sum + attachment.file.size, 0)
+        const total = imageAttachments.reduce((sum, attachment) => sum + attachment.file.size, 0)
           + files.reduce((sum, file) => sum + file.size, 0)
         if (total > imageLimits.maxMessageImageBytes) {
           return t('image.totalTooLarge', { size: imageSizeText(imageLimits.maxMessageImageBytes) })
@@ -240,7 +253,31 @@ export function InputBar({
       return addImages(files)
     })()
     if (rejected !== null) showToast(rejected)
-  }, [addImages, attachments, imageLimits, showToast, t])
+  }, [addImages, imageAttachments, imageLimits, showToast, t])
+
+  // The picker's one intake: a selection splits by PDF-ness — PDFs enter the
+  // file draft channel (any rejection text shows as the same toast), every
+  // other file walks the image intake with its pre-checks and copy. Without a
+  // file channel the PDFs fall through to the image intake too, whose format
+  // rejection is the only announcement that surface can give.
+  const intakeSelection = useCallback((list: FileList | null): void => {
+    if (list === null || list.length === 0) return
+    const files = [...list]
+    const isPdf = (file: File): boolean =>
+      file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+    const pdfs = files.filter(isPdf)
+    const rest = files.filter(file => !isPdf(file))
+    if (pdfs.length !== 0) {
+      if (addFiles === undefined) intakeImages(pdfs)
+      else {
+        const rejected = addFiles(pdfs)
+        if (rejected !== null) showToast(rejected)
+      }
+    }
+    if (rest.length !== 0) intakeImages(rest)
+  }, [addFiles, intakeImages, showToast])
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const canAcceptDrop = !locked && !machineBusy && addImages !== undefined
 
@@ -449,6 +486,32 @@ export function InputBar({
                 <IconPlusOutline16 size={14} />
               </button>
             </Tooltip>
+            <Tooltip label={t('input.attach')} side="top" delayMs={500}>
+              <button
+                type="button"
+                className={css.add}
+                aria-label={t('input.attach')}
+                disabled={locked || (addFiles === undefined && addImages === undefined)}
+                onMouseDown={keepFocus}
+                onClick={() => { fileInputRef.current?.click() }}
+              >
+                <IconPaperclipOutline16 size={14} />
+              </button>
+            </Tooltip>
+            {/* The picker itself: hidden, multi-select, filtered to the two
+                intake channels; the value resets after each change so picking
+                the same file twice still fires. */}
+            <input
+              ref={fileInputRef}
+              hidden
+              type="file"
+              multiple
+              accept={ATTACHMENT_ACCEPT}
+              onChange={(e) => {
+                intakeSelection(e.target.files)
+                e.target.value = ''
+              }}
+            />
             <div className={css.modes}>
               {accessSelect}
               {sessionId === undefined ? null : renderSlot('conversation.input.plan', { locked })}

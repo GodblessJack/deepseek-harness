@@ -77,6 +77,11 @@ export interface SessionInputDeps {
     /** Localized composer notice for a claimed command that does not accept images. */
     unsupportedNotice(token: string): string
   }
+  /** Command-plane file copy (the hub owns the locale; commands have no file payload channel). */
+  commandFiles: {
+    /** Localized composer notice for a claimed command submitted while PDF drafts are attached. */
+    unsupportedNotice(token: string): string
+  }
 }
 
 /** Guard tier from the machine phase. */
@@ -417,6 +422,14 @@ export class SessionInputShell implements SessionInput {
     const before = this.snapshot
     if (before.phase === 'claimed' && this.imageIds.length > 0 && before.claim?.images !== true) {
       this.notify('error', this.deps.commandImages.unsupportedNotice(before.claim?.token ?? before.draft))
+      return
+    }
+    // No claim carries a file payload channel (claim.submit receives images
+    // only), so ANY claimed submit with PDF drafts attached would leave the
+    // files silently riding the next plain message — refuse symmetrically:
+    // one notice, everything retained.
+    if (before.phase === 'claimed' && this.fileIds.length > 0) {
+      this.notify('error', this.deps.commandFiles.unsupportedNotice(before.claim?.token ?? before.draft))
       return
     }
     this.dispatchRun(({ type: 'enter', mode, draft: this.projection.clipboardText }))

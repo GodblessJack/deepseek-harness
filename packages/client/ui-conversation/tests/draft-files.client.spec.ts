@@ -215,10 +215,11 @@ describe('input file draft channel', () => {
     release: () => {},
     unsupportedNotice: (token: string) => `${token.trim()} images-unsupported`,
   }
+  const commandFiles = { unsupportedNotice: (token: string) => `${token.trim()} files-unsupported` }
 
   it('addFiles/removeFile publish ordered fileIds and submit carries them to the default sink', async () => {
     const sink = vi.fn(() => Promise.resolve({ kind: 'success' as const }))
-    const shell = new SessionInputShell({ actx: {} as never, defaultSink: sink, commandImages })
+    const shell = new SessionInputShell({ actx: {} as never, defaultSink: sink, commandImages, commandFiles })
     const first = 'file-1' as DraftAttachmentId
     const second = 'file-2' as DraftAttachmentId
     expect(shell.addFiles([first])).toBe(true)
@@ -241,6 +242,7 @@ describe('input file draft channel', () => {
       actx: {} as never,
       defaultSink: () => new Promise<{ kind: 'success' } | { kind: 'error' }>((resolve) => { settle = resolve }),
       commandImages,
+      commandFiles,
     })
     const file = 'file-1' as DraftAttachmentId
     shell.addFiles([file])
@@ -269,6 +271,29 @@ describe('input file draft channel', () => {
       expect(b.root.draftFiles([file!.id])).toHaveLength(1)
     } finally {
       vi.unstubAllGlobals()
+      await b.runtime.dispose()
+    }
+  })
+
+  it('refuses a claimed command submitted with PDF drafts through the hub notice copy', async () => {
+    const b = await bench()
+    try {
+      const [file] = b.root.createDraftFiles([PDF()])
+      b.shell.addFiles([file!.id])
+      b.shell.setDraft('/goal ')
+      b.shell.beginCommand(
+        { token: '/goal ', submit: () => Promise.resolve({ kind: 'success' as const }) },
+        { start: 0, end: 6, draftRev: b.shell.snapshot.draftRev },
+      )
+      b.shell.submit('queue')
+      expect(b.shell.notices.getSnapshot()).toMatchObject({
+        level: 'error',
+        text: '/goal 不接受 PDF 附件，请先移除',
+      })
+      expect(b.shell.snapshot.fileIds).toEqual([file!.id])
+      expect(b.shell.snapshot.draft).toBe('/goal ')
+      expect(b.prompt).not.toHaveBeenCalled()
+    } finally {
       await b.runtime.dispose()
     }
   })

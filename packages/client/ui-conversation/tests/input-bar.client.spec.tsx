@@ -84,7 +84,9 @@ interface BenchOptions {
   leftItems?: React.ReactNode
   rightItems?: React.ReactNode
   attachments?: readonly ComposerAttachment[]
-  addImages?: (files: readonly File[]) => string | null
+  /** null mounts the bar without an image intake (the no-capability face). */
+  addImages?: ((files: readonly File[]) => string | null) | null
+  addFiles?: (files: readonly File[]) => string | null
   commandMenuOpen?: boolean
   busyEnter?: 'queue' | 'steer'
   toggleCommandMenu?: (selection: { start: number; end: number }) => void
@@ -120,6 +122,7 @@ function bench(over?: BenchOptions) {
     actx: SCTX,
     defaultSink: sink,
     commandImages: { serialize: () => Promise.resolve([]), release: () => {}, unsupportedNotice: (token: string) => `${token.trim()} images-unsupported` },
+    commandFiles: { unsupportedNotice: (token: string) => `${token.trim()} files-unsupported` },
     queue: {
       getSnapshot: () => session.getSnapshot().queue,
       subscribe: fn => session.subscribe(fn),
@@ -137,7 +140,12 @@ function bench(over?: BenchOptions) {
       : {}),
   })
   if (over?.draft !== undefined && over.draft !== '') shell.setDraft(over.draft)
-  if (over?.attachments !== undefined) shell.addImages(over.attachments.map(attachment => attachment.id))
+  if (over?.attachments !== undefined) {
+    const images = over.attachments.filter(attachment => attachment.kind === 'image')
+    const files = over.attachments.filter(attachment => attachment.kind === 'file')
+    if (images.length > 0) shell.addImages(images.map(attachment => attachment.id))
+    if (files.length > 0) shell.addFiles(files.map(attachment => attachment.id))
+  }
   const stop = vi.fn()
   const removeImage = vi.fn((id: DraftAttachmentId) => { shell.removeImage(id) })
   const menuLauncher = createSnapshotStore<string | null>(over?.commandMenuOpen === true ? 'command' : null)
@@ -168,13 +176,17 @@ function bench(over?: BenchOptions) {
     useInput: bindSnapshotSelector(shell.state),
     inputActions: shell.actions,
     keyboard: shell,
-    addImages: over?.addImages ?? (() => null),
+    addImages: over?.addImages === null ? undefined : over?.addImages ?? (() => null),
     removeImage,
-    addFiles: undefined,
+    addFiles: over?.addFiles,
     removeFile: undefined,
     draftImages: ids => ids.flatMap((id) => {
       const attachment = over?.attachments?.find(candidate => candidate.id === id)
-      return attachment === undefined ? [] : [attachment]
+      return attachment !== undefined && attachment.kind === 'image' ? [attachment] : []
+    }),
+    draftFiles: ids => ids.flatMap((id) => {
+      const attachment = over?.attachments?.find(candidate => candidate.id === id)
+      return attachment !== undefined && attachment.kind === 'file' ? [attachment] : []
     }),
     resolveSubmitMode: (running, gesture, steeringAvailable) => {
       if (!running || !steeringAvailable) return 'queue'
@@ -437,6 +449,105 @@ describe('image draft rail', () => {
       ])
     })
     expect(result.view.getByRole('alert').textContent).toContain('图片读取服务不可用')
+  })
+})
+
+describe('attachment upload button', () => {
+  const PDF = (name = 'doc.pdf'): File => new File([Uint8Array.of(1)], name, { type: 'application/pdf' })
+
+  /** Land one picker selection on the hidden file input (the OS dialog's face). */
+  function pick(result: ReturnType<typeof bench>, files: readonly File[]): HTMLInputElement {
+    const input = result.view.container.querySelector<HTMLInputElement>('input[type="file"]')
+    expect(input).not.toBeNull()
+    Object.defineProperty(input, 'files', { configurable: true, value: [...files] })
+    return input!
+  }
+
+  it('routes a mixed selection: images to the image intake, PDFs to addFiles', () => {
+    const addImages = vi.fn(() => null)
+    const addFiles = vi.fn(() => null)
+    const result = bench({ addImages, addFiles })
+    const png = new File([Uint8Array.of(1, 2)], 'pixel.png', { type: 'image/png' })
+    const typed = PDF()
+    // A PDF whose browser-declared type is empty still routes by file name.
+    const untyped = new File([Uint8Array.of(3)], 'report.pdf', { type: '' })
+    act(() => { fireEvent.change(pick(result, [png, typed, untyped])) })
+    expect(addImages).toHaveBeenCalledWith([png])
+    expect(addFiles).toHaveBeenCalledWith([typed, untyped])
+  })
+
+  it('announces an addFiles rejection and admits an immediate same-file repeat', () => {
+    const addImages = vi.fn(() => null)
+    const addFiles = vi.fn(() => '一条消息最多添加 4 个 PDF')
+    const result = bench({ addImages, addFiles })
+    const input = pick(result, [PDF()])
+    act(() => { fireEvent.change(input) })
+    expect(result.view.getByRole('alert').textContent).toContain('一条消息最多添加 4 个 PDF')
+    // The value reset after intake: selecting the same file again still fires.
+    act(() => { fireEvent.change(input) })
+    expect(addFiles).toHaveBeenCalledTimes(2)
+  })
+
+  it('routes PDFs through the image intake when no file channel exists', () => {
+    const addImages = vi.fn(() => '仅支持 PNG、JPG、WebP、GIF 格式的图片')
+    const result = bench({ addImages }) // addFiles stays undefined: no file channel
+    act(() => { fireEvent.change(pick(result, [PDF()])) })
+    expect(addImages).toHaveBeenCalledWith([PDF()])
+    expect(result.view.getByRole('alert').textContent).toContain('仅支持 PNG、JPG、WebP、GIF 格式的图片')
+  })
+
+  it('opens the picker on click, keeps editor focus on mousedown, and declares its accept list', () => {
+    const addImages = vi.fn(() => null)
+    const result = bench({ addImages })
+    const button = result.view.getByLabelText('上传图片或 PDF') as HTMLButtonElement
+    expect(button.disabled).toBe(false)
+    const input = result.view.container.querySelector<HTMLInputElement>('input[type="file"]')!
+    expect(input.multiple).toBe(true)
+    expect(input.getAttribute('accept')).toBe('image/png,image/jpeg,image/webp,image/gif,application/pdf')
+    const opened = vi.fn()
+    input.click = opened
+    act(() => { fireEvent.click(button) })
+    expect(opened).toHaveBeenCalledTimes(1)
+    const focused: (boolean | undefined)[] = []
+    result.textarea.focus = (options?: FocusOptions) => { focused.push(options?.preventScroll) }
+    fireEvent.mouseDown(button)
+    expect(focused).toEqual([true])
+  })
+
+  it('locks with the composer and without any intake channel', () => {
+    const inert = bench({ inert: true })
+    expect((inert.view.getByLabelText('上传图片或 PDF') as HTMLButtonElement).disabled).toBe(true)
+    cleanup()
+    const channelless = bench({ addImages: null })
+    expect((channelless.view.getByLabelText('上传图片或 PDF') as HTMLButtonElement).disabled).toBe(true)
+    cleanup()
+    // A file channel alone keeps the picker available.
+    const filesOnly = bench({ addImages: null, addFiles: () => null })
+    expect((filesOnly.view.getByLabelText('上传图片或 PDF') as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('ignores an empty or missing selection', () => {
+    const addImages = vi.fn(() => null)
+    const addFiles = vi.fn(() => null)
+    const result = bench({ addImages, addFiles })
+    const input = result.view.container.querySelector<HTMLInputElement>('input[type="file"]')!
+    for (const files of [[], null] as const) {
+      Object.defineProperty(input, 'files', { configurable: true, value: files })
+      act(() => { fireEvent.change(input) })
+    }
+    expect(addImages).not.toHaveBeenCalled()
+    expect(addFiles).not.toHaveBeenCalled()
+  })
+
+  it('treats a file-only draft as sendable through the primary button', async () => {
+    const pdf = { kind: 'file' as const, id: 'file-1' as DraftAttachmentId, file: PDF() }
+    const result = bench({ attachments: [pdf] })
+    expect(result.button.getAttribute('aria-label')).toBe('发送消息')
+    expect(result.button.disabled).toBe(false)
+    act(() => { fireEvent.click(result.button) })
+    await vi.waitFor(() => {
+      expect(result.sink).toHaveBeenCalledWith('', [], ['file-1'], 'queue', expect.any(AbortSignal))
+    })
   })
 })
 

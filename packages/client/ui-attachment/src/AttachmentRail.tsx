@@ -1,15 +1,18 @@
-/** Draft-attachment thumbnail rail: scrollbar-less horizontal overflow paged
- * by edge arrows, hover-revealed per-item remove, single-click open. */
+/** Draft-attachment rail: scrollbar-less horizontal overflow paged by edge
+ * arrows, hover-revealed per-item remove, single-click image open, and
+ * preview-less file chips. */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import clsx from 'clsx'
 import {
   IconChevronLeftOutline14, IconChevronRightOutline14, IconCloseFill14,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import css from './AttachmentRail.module.css'
 
-/** One rail thumbnail; strings arrive resolved (zero-cordis atom). */
-export interface AttachmentRailItem {
+/** One image thumbnail item; strings arrive resolved (zero-cordis atom). */
+export interface ImageRailItem {
+  kind: 'image'
   /** Stable identity for the React key. */
   id: string
   /** Object or data URL rendered as the thumbnail. */
@@ -19,6 +22,22 @@ export interface AttachmentRailItem {
   /** Accessible label of the item's remove control. */
   removeLabel: string
 }
+
+/** One file chip item: name and size only, no preview surface to open. */
+export interface FileRailItem {
+  kind: 'file'
+  /** Stable identity for the React key. */
+  id: string
+  /** Display file name. */
+  name: string
+  /** Display size text, formatted by the owner. */
+  sizeText: string
+  /** Accessible label of the item's remove control. */
+  removeLabel: string
+}
+
+/** One rail item: a previewed image thumbnail or an upload-bound file chip. */
+export type AttachmentRailItem = ImageRailItem | FileRailItem
 
 /** Rail-level strings the owner resolves from its own locale namespace. */
 export interface AttachmentRailLabels {
@@ -36,6 +55,12 @@ export interface AttachmentRailLabels {
  * notch wheels report lines, not pixels). */
 const WHEEL_LINE_PX = 16
 
+/** Local exhaustiveness helper — client packages do not depend on `dsh-llm`. */
+/* v8 ignore next 3 -- closed-union backstop; only reached if an item kind is forged */
+function assertNever(value: never): never {
+  throw new Error(`unknown attachment rail item: ${JSON.stringify(value)}`)
+}
+
 /** Smooth paging unless the user asked for reduced motion. */
 function pageBehavior(): ScrollBehavior {
   // jsdom (the unit lane) implements no matchMedia despite lib.dom's
@@ -45,7 +70,8 @@ function pageBehavior(): ScrollBehavior {
 }
 
 /**
- * Horizontal thumbnail rail over the caller's draft attachments.
+ * Horizontal rail over the caller's draft attachments: image thumbnails and
+ * file chips.
  *
  * The rail scrolls with its scrollbar hidden; overflow is announced by edge
  * arrows recomputed from scroll geometry on scroll, item-count changes, and
@@ -53,21 +79,23 @@ function pageBehavior(): ScrollBehavior {
  * panel resizes count, not only window resizes). A vertical wheel pans the
  * rail horizontally and is consumed exclusively (non-passive listener), a
  * newly added item is revealed at the rail's end while a rail that mounts
- * over an existing draft keeps its start position, and each thumbnail opens
- * on a single click while its remove control sits inside the card and
- * reveals on hover or focus. The owner decides mounting; it renders the rail
- * only while items exist.
+ * over an existing draft keeps its start position. Each image thumbnail
+ * opens on a single click while its remove control sits inside the card and
+ * reveals on hover or focus; a file chip presents name and size text only,
+ * with the same hover-revealed remove. The owner decides mounting; it
+ * renders the rail only while items exist.
  *
- * @param props.items - resolved thumbnails in draft order.
+ * @param props.items - resolved thumbnails and file chips in draft order.
  * @param props.labels - rail-level strings (group name, open tooltip, arrows).
- * @param props.onOpen - single-click open of one item's original image.
+ * @param props.onOpen - single-click open of one image item's original.
  * @param props.onRemove - remove one item from the draft.
  * @returns the rail group with its paging arrows.
  */
 export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, onOpen, onRemove }: {
   items: readonly T[]
   labels: AttachmentRailLabels
-  onOpen: (item: T) => void
+  /** Only image items carry an open affordance, so the parameter is the image member of the item union. */
+  onOpen: (item: T & ImageRailItem) => void
   onRemove: (item: T) => void
 }) {
   const railRef = useRef<HTMLDivElement | null>(null)
@@ -164,26 +192,52 @@ export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, on
         aria-label={labels.group}
         onScroll={updateEdges}
       >
-        {items.map(item => (
-          <div key={item.id} className={css.item}>
-            <button
-              type="button"
-              className={css.thumbnail}
-              title={labels.open}
-              onClick={() => { onOpen(item) }}
-            >
-              <img src={item.previewUrl} alt={item.alt} />
-            </button>
-            <button
-              type="button"
-              className={css.remove}
-              aria-label={item.removeLabel}
-              onClick={() => { onRemove(item) }}
-            >
-              <IconCloseFill14 size={12} />
-            </button>
-          </div>
-        ))}
+        {items.map((item) => {
+          let body: ReactNode
+          let itemClass: string | undefined
+          switch (item.kind) {
+            case 'image': {
+              // Discriminant narrowing cannot refine the generic parameter;
+              // this case body sees the image member of T.
+              const imageItem = item as T & ImageRailItem
+              itemClass = css.item
+              body = (
+                <button
+                  type="button"
+                  className={css.thumbnail}
+                  title={labels.open}
+                  onClick={() => { onOpen(imageItem) }}
+                >
+                  <img src={imageItem.previewUrl} alt={imageItem.alt} />
+                </button>
+              )
+              break
+            }
+            case 'file':
+              itemClass = css.fileItem
+              body = (
+                <div className={css.fileChip}>
+                  <span className={css.fileName} title={item.name}>{item.name}</span>
+                  <span className={css.fileSize}>{item.sizeText}</span>
+                </div>
+              )
+              break
+            default: return assertNever(item)
+          }
+          return (
+            <div key={item.id} className={itemClass}>
+              {body}
+              <button
+                type="button"
+                className={css.remove}
+                aria-label={item.removeLabel}
+                onClick={() => { onRemove(item) }}
+              >
+                <IconCloseFill14 size={12} />
+              </button>
+            </div>
+          )
+        })}
       </div>
       {edges.right && (
         <button

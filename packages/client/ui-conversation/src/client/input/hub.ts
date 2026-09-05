@@ -107,6 +107,11 @@ export class InputHub implements SessionInputResolver {
           command: token.trim().replace(/^\//u, ''),
         }),
       },
+      commandFiles: {
+        unsupportedNotice: token => this.t('command.filesUnsupported', {
+          command: token.trim().replace(/^\//u, ''),
+        }),
+      },
     })
     this.shells.set(id, shell)
     // The one teardown axis: listeners, shell, and map entries all ride the

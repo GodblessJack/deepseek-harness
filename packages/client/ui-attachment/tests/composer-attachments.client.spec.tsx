@@ -22,6 +22,7 @@ afterEach(() => {
 
 const t = ((key: string, params?: Readonly<Record<string, unknown>>): string => {
   const messages: Record<string, string> = {
+    'attachment.pending': '待发送附件',
     'image.pending': '待发送图片',
     'image.original': '原图',
     'image.preview': '原图预览',
@@ -31,10 +32,13 @@ const t = ((key: string, params?: Readonly<Record<string, unknown>>): string => 
     'image.scrollRight': '向右滚动图片',
     'image.dropBlocked': '当前无法添加图片',
     'image.dropTitle': '图片拖动到此处即可添加',
+    'file.pending': '待发送文件',
   }
-  if (key === 'image.remove') {
+  if (key === 'image.remove' || key === 'file.remove') {
     const name = params?.name
-    return `移除图片 ${typeof name === 'string' ? name : ''}`
+    return key === 'image.remove'
+      ? `移除图片 ${typeof name === 'string' ? name : ''}`
+      : `移除文件 ${typeof name === 'string' ? name : ''}`
   }
   if (key === 'image.dropDesc') {
     const count = params?.count
@@ -159,13 +163,35 @@ describe('ComposerAttachments', () => {
     expect(view.getByAltText('原图')).toBeTruthy()
   })
 
-  it('renders no rail thumbnail for a file-kind draft attachment', () => {
+  it('renders a file chip with name and size beside image chips and routes removal through onRemoveFile', () => {
+    const onRemoveFile = vi.fn()
     const pdf: ComposerAttachment = {
       kind: 'file',
       id: 'draft-pdf' as ComposerAttachment['id'],
-      file: new File([Uint8Array.of(1)], 'doc.pdf', { type: 'application/pdf' }),
+      file: new File([new ArrayBuffer(1536)], 'doc.pdf', { type: 'application/pdf' }),
+    }
+    const image = attachment('draft-1', 'pixel.png')
+    const view = render(<ComposerAttachments {...props({ attachments: [image, pdf], onRemoveFile })} />)
+    const rail = view.getByRole('group')
+    // The rail holds mixed draft kinds now.
+    expect(rail.getAttribute('aria-label')).toBe('待发送附件')
+    expect(view.getByAltText('pixel.png')).toBeTruthy()
+    expect(rail.querySelectorAll('img')).toHaveLength(1)
+    expect(rail.textContent).toContain('doc.pdf')
+    expect(rail.textContent).toContain('1.5 KB')
+    fireEvent.click(view.getByRole('button', { name: '移除文件 doc.pdf' }))
+    expect(onRemoveFile).toHaveBeenCalledWith(pdf.id)
+  })
+
+  it('renders the rail for a file-only draft with no image element', () => {
+    const pdf: ComposerAttachment = {
+      kind: 'file',
+      id: 'draft-pdf' as ComposerAttachment['id'],
+      file: new File([Uint8Array.of(1)], 'notes.pdf', { type: 'application/pdf' }),
     }
     const view = render(<ComposerAttachments {...props({ attachments: [pdf] })} />)
-    expect(view.queryByRole('group')).toBeNull()
+    const rail = view.getByRole('group', { name: '待发送附件' })
+    expect(rail.querySelector('img')).toBeNull()
+    expect(rail.textContent).toContain('notes.pdf')
   })
 })

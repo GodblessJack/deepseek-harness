@@ -49,13 +49,13 @@ export function dropOverlayLabels(
 }
 
 /**
- * Resolve draft-image rail strings from the conversation namespace.
+ * Resolve draft-attachment rail strings from the conversation namespace.
  * @param t - conversation namespace translator.
  * @returns translated attachment-rail labels.
  */
 export function attachmentRailLabels(t: TranslateNS<'conversation'>): AttachmentRailLabels {
   return {
-    group: t('image.pending'),
+    group: t('attachment.pending'),
     open: t('image.openOriginal'),
     scrollLeft: t('image.scrollLeft'),
     scrollRight: t('image.scrollRight'),

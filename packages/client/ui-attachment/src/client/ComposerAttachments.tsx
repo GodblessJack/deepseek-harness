@@ -1,22 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
-  ComposerAttachmentsProps, ImageDraftAttachment,
+  ComposerAttachmentsProps, FileDraftAttachment, ImageDraftAttachment,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { uploadSizeText } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { AttachmentRail } from '../AttachmentRail.tsx'
-import type { AttachmentRailItem } from '../AttachmentRail.tsx'
+import type { FileRailItem, ImageRailItem } from '../AttachmentRail.tsx'
 import { DropOverlay } from '../DropOverlay.tsx'
 import { ImageLightbox } from '../ImageLightbox.tsx'
 import { attachmentRailLabels, dropOverlayLabels, lightboxLabels } from './labels.ts'
 import css from './ComposerAttachments.module.css'
 
-/** Rail item retaining its browser-owned image draft for callbacks. */
-interface ComposerRailItem extends AttachmentRailItem {
-  attachment: ImageDraftAttachment
-}
+/** Rail item retaining its browser-owned draft for callbacks. */
+type ComposerRailItem =
+  | (ImageRailItem & { attachment: ImageDraftAttachment })
+  | (FileRailItem & { attachment: FileDraftAttachment })
 
-/** Draft-image rail, document drop target, and original-image preview slot entry. */
+/** Draft-attachment rail (image thumbnails + file chips), document drop target, and original-image preview slot entry. */
 export function ComposerAttachments({
-  attachments, canAcceptDrop, onAddImages, onRemoveImage, dropLimits, t,
+  attachments, canAcceptDrop, onAddImages, onRemoveImage, onRemoveFile, dropLimits, t,
 }: ComposerAttachmentsProps) {
   const [preview, setPreview] = useState<ImageDraftAttachment | null>(null)
   const [dragActive, setDragActive] = useState(false)
@@ -78,18 +79,27 @@ export function ComposerAttachments({
     }
   }, [canAcceptDrop, onAddImages])
 
-  // The thumbnail rail is image-only: file drafts (PDFs) render through the
-  // file chip presentation instead.
-  const railItems = useMemo<ComposerRailItem[]>(() => attachments.flatMap(attachment =>
+  // The rail mixes kinds in draft order: images keep their thumbnail
+  // presentation; file drafts (PDFs) render as name-and-size chips with no
+  // preview surface.
+  const railItems = useMemo<ComposerRailItem[]>(() => attachments.flatMap((attachment): ComposerRailItem[] =>
     attachment.kind === 'image'
       ? [{
+        kind: 'image' as const,
         id: attachment.id,
         previewUrl: attachment.previewUrl,
         alt: attachment.file.name || t('image.pending'),
         removeLabel: t('image.remove', { name: attachment.file.name }),
         attachment,
       }]
-      : []), [attachments, t])
+      : [{
+        kind: 'file' as const,
+        id: attachment.id,
+        name: attachment.file.name || t('file.pending'),
+        sizeText: uploadSizeText(attachment.file.size),
+        removeLabel: t('file.remove', { name: attachment.file.name }),
+        attachment,
+      }]), [attachments, t])
 
   return (
     <>
@@ -105,7 +115,10 @@ export function ComposerAttachments({
             items={railItems}
             labels={attachmentRailLabels(t)}
             onOpen={(item) => { setPreview(item.attachment) }}
-            onRemove={(item) => { onRemoveImage(item.attachment.id) }}
+            onRemove={(item) => {
+              if (item.kind === 'image') onRemoveImage(item.attachment.id)
+              else onRemoveFile(item.attachment.id)
+            }}
           />
         </div>
       )}

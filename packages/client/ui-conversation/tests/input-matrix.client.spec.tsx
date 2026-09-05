@@ -73,6 +73,7 @@ function mountBar(shell: SessionInputShell, over?: { running?: boolean; disabled
       file: new File([Uint8Array.of(1)], `${id}.png`, { type: 'image/png' }),
       previewUrl: `blob:${id}`,
     })),
+    draftFiles: () => [],
     resolveSubmitMode: () => 'queue',
     toggleCommandMenu: vi.fn(),
     useNotices: bindSnapshotSelector(shell.notices),
@@ -96,7 +97,12 @@ function bench(over?: {
   const sink = vi.fn(() => Promise.resolve<SubmitOutcome>({ kind: 'success' }))
   const serialize = vi.fn(over?.serialize ?? (() => Promise.resolve<readonly SubmitImageAttachment[]>([])))
   const release = vi.fn()
-  const shell = new SessionInputShell({ actx: SCTX, defaultSink: sink, commandImages: { serialize, release, unsupportedNotice: (token: string) => `${token.trim()} images-unsupported` } })
+  const shell = new SessionInputShell({
+    actx: SCTX,
+    defaultSink: sink,
+    commandImages: { serialize, release, unsupportedNotice: (token: string) => `${token.trim()} images-unsupported` },
+    commandFiles: { unsupportedNotice: (token: string) => `${token.trim()} files-unsupported` },
+  })
   const wiring = shell
   const view = mountBar(shell, over)
   const textarea = view.container.querySelector<HTMLDivElement>('[data-composer-input]')!
@@ -258,6 +264,41 @@ describe('matrix row: claimed with images', () => {
     expect(shell.snapshot.phase).toBe('submitting')
     act(() => { shell.removeImage(img) })
     expect(shell.snapshot.imageIds).toEqual([img])
+  })
+})
+
+describe('matrix row: claimed with files', () => {
+  const pdf = 'file-1' as DraftAttachmentId
+
+  it('a claimed submit with PDF drafts is refused: one notice, draft/files/claim retained', async () => {
+    const submit = vi.fn(() => Promise.resolve({ kind: 'success' as const }))
+    const { view, textarea, shell, sink, claim } = bench({ submit })
+    claim()
+    act(() => { shell.addFiles([pdf]) })
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+    await Promise.resolve()
+    expect(shell.snapshot.phase).toBe('claimed')
+    expect(submit).not.toHaveBeenCalled()
+    expect(sink).not.toHaveBeenCalled()
+    expect(view.getByText('/goal files-unsupported')).toBeTruthy()
+    expect(shell.snapshot.fileIds).toEqual([pdf])
+    expect(shell.snapshot.draft).toBe('/goal ')
+  })
+
+  it('image acceptance does not open a file channel: files still refuse the submit', async () => {
+    const submit = vi.fn(() => Promise.resolve({ kind: 'success' as const }))
+    const { textarea, shell, claim } = bench({ submit })
+    claim('/goal ', '目标', true)
+    act(() => {
+      shell.addImages(['img-1' as DraftAttachmentId])
+      shell.addFiles([pdf])
+    })
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+    await Promise.resolve()
+    expect(submit).not.toHaveBeenCalled()
+    expect(shell.snapshot.phase).toBe('claimed')
+    expect(shell.snapshot.fileIds).toEqual([pdf])
+    expect(shell.snapshot.imageIds).toEqual(['img-1' as DraftAttachmentId])
   })
 })
 

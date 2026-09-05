@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This package renders everything the conversation UI shows about attachments: pending draft images under the composer, a full-viewport drop invitation, durable images in Chat and Trajectory, and a lightbox for the original image. It is a pure presentation layer — attachment data, image loading, and callbacks come from the conversation package through declared slots. Choose it for the DeepSeek Chat-style image experience; non-image files have no surface here.
+This package renders everything the conversation UI shows about attachments: the pending draft rail under the composer (image thumbnails and PDF file chips), a full-viewport drop invitation, durable images in Chat and Trajectory, and a lightbox for the original image. It is a pure presentation layer — attachment data, image loading, and callbacks come from the conversation package through declared slots. Choose it for the DeepSeek Chat-style image experience; file drafts present name and size only, without a document preview.
 
 ## Table of Contents
 
@@ -25,11 +25,11 @@ This package renders everything the conversation UI shows about attachments: pen
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount this plugin alongside [`ui-conversation`](../ui-conversation/README.md); it waits for the conversation package's slot declarations and registers its surfaces into them. Users then see the draft-image rail with per-image remove and click-to-open, the drop overlay with its limits line, message images sized by count, and the Escape/mask/close lightbox.
+Mount this plugin alongside [`ui-conversation`](../ui-conversation/README.md); it waits for the conversation package's slot declarations and registers its surfaces into them. Users then see the draft rail with per-image remove and click-to-open plus per-file remove on PDF chips, the drop overlay with its limits line, message images sized by count, and the Escape/mask/close lightbox.
 
-### Draft images
+### Draft attachments
 
-A draft image shows as a fixed 64px thumbnail in one horizontally scrolling row; edge arrows page the rail when overflow hides items, and the scrollbar stays hidden. A newly added item is revealed at the rail's end, removal keeps the scroll position, and a single click opens the original through the owner's `onOpen`.
+A draft image shows as a fixed 64px thumbnail in one horizontally scrolling row; edge arrows page the rail when overflow hides items, and the scrollbar stays hidden. A newly added item is revealed at the rail's end, removal keeps the scroll position, and a single click opens the original through the owner's `onOpen`. A draft PDF file shows in the same row as a chip carrying its name and size text — no preview, no open action — with the same hover-revealed remove routed through the owner's `onRemoveFile`.
 
 ### Message images and the lightbox
 
@@ -51,8 +51,8 @@ The plugin waits for `conversation.input.attachments`, `conversation.message.ima
 
 | File | Role |
 |---|---|
-| [`src/client/ComposerAttachments.tsx`](src/client/ComposerAttachments.tsx) | Draft-image rail + drop overlay assembly |
-| [`src/AttachmentRail.tsx`](src/AttachmentRail.tsx) | Scrolling thumbnail rail, wheel translation, edge arrows |
+| [`src/client/ComposerAttachments.tsx`](src/client/ComposerAttachments.tsx) | Draft-attachment rail + drop overlay assembly |
+| [`src/AttachmentRail.tsx`](src/AttachmentRail.tsx) | Scrolling rail (image thumbnails, file chips), wheel translation, edge arrows |
 | [`src/client/MessageImages.tsx`](src/client/MessageImages.tsx) | Per-message gallery + lightbox assembly |
 | [`src/MessageImage.tsx`](src/MessageImage.tsx) | Single image sizing, load/retry, click-to-open; local submission-echo previews render their object URL directly |
 | [`src/ImageLightbox.tsx`](src/ImageLightbox.tsx) | Document-level modal preview over the shared mask |
@@ -89,7 +89,7 @@ None; this package neither assembles nor sends a provider request.
 
 These limits define the current attachment surface. They are package constraints, not a general image-viewer comparison or a task backlog.
 
-- **Images only** — the rail renders image drafts only; the composer's PDF drafts (`kind: 'file'`) pass through unrendered, and DeepSeek Chat-style file cards and upload progress wait on their own presentation.
+- **File chips carry no document preview or progress** — a PDF draft renders as a name-and-size chip; DeepSeek Chat-style file cards, document preview, and upload progress wait on their own presentation.
 - **No zoom or download in the lightbox** — the preview renders the original at fit-to-viewport size only.
 - **The lightbox does not trap focus** — it sets `aria-modal` and restores focus on close, but Tab can reach the page behind it.
 
