@@ -95,6 +95,11 @@
     - id: workspace-controller
       name: '@deepseek-ai/dsh-api-workspace-controller'
 
+    # Composer attachment upload: one authenticated exact Fetch route storing
+    # admitted PDFs under the session workspace uploads/ tree.
+    - id: workspace-upload
+      name: '@deepseek-ai/dsh-workspace-upload'
+
     - id: cordis-host-runner
       name: '@deepseek-ai/dsh-cordis-host-runner'
 

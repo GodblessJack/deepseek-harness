@@ -564,7 +564,9 @@
       "@deepseek-ai/dsh-workflow-worker-thread": ["./packages/workflow/workflow-worker-thread/src"],
       "@deepseek-ai/dsh-workflow-worker-thread/invariant": ["./packages/workflow/workflow-worker-thread/src/invariant.ts"],
       "@deepseek-ai/dsh-workspace": ["./packages/workspace/workspace/src"],
-      "@deepseek-ai/dsh-workspace/invariant": ["./packages/workspace/workspace/src/invariant.ts"]
+      "@deepseek-ai/dsh-workspace/invariant": ["./packages/workspace/workspace/src/invariant.ts"],
+      "@deepseek-ai/dsh-workspace-upload": ["./packages/api/workspace-upload/src"],
+      "@deepseek-ai/dsh-workspace-upload/invariant": ["./packages/api/workspace-upload/src/invariant.ts"]
       // END generated package aliases
     }
   }
