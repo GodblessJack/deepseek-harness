@@ -123,11 +123,11 @@ export interface InputTriggerController {
   onSpace(): boolean
   /** @param source - reference source. @param ref - source-local id. @param signal - submit cancellation. @returns model text. */
   serializeReference(source: string, ref: string, signal: AbortSignal): Promise<string>
-  /** @param line - trimmed draft. @param signal - submit cancellation. @param envelope - attachment count. @returns winning result. */
+  /** @param line - trimmed draft. @param signal - submit cancellation. @param envelope - attachment counts. @returns winning result. */
   adjudicate(
     line: string,
     signal: AbortSignal,
-    envelope: { readonly images: number },
+    envelope: { readonly images: number; readonly files: number },
   ): Promise<PickOutcome>
   /** @param source - source name. @param hit - synthetic trigger hit. */
   toggleSource(source: string, hit: InputTriggerHit): void

@@ -12,7 +12,7 @@ import {
   ConversationController, formatUploadReference, UnsupportedFileMediaTypeError, WorkspaceUploadError,
 } from '../src/client/service.ts'
 import { zh } from '../src/client/locales.ts'
-import type { DraftAttachmentId } from '../src/client/contract/input.ts'
+import type { DraftAttachmentId, InputTriggerController } from '../src/client/contract/input.ts'
 
 const PDF = (name = 'a.pdf'): File => new File([Uint8Array.of(1)], name, { type: 'application/pdf' })
 
@@ -296,5 +296,82 @@ describe('input file draft channel', () => {
     } finally {
       await b.runtime.dispose()
     }
+  })
+
+  // The typed-line sibling of the claimed pre-gate above: an unclaimed '/cmd'
+  // line from the keyboard skips the facade gates and relies on adjudication,
+  // so the envelope the facade hands the trigger pipeline must carry the file
+  // count for the command source to refuse on.
+  it('refuses a typed-line command carrying PDF drafts at adjudication: notice, nothing sent, everything retained', async () => {
+    const sink = vi.fn(() => Promise.resolve({ kind: 'success' as const }))
+    const envelopes: Array<{ images: number; files: number }> = []
+    const inputTriggers = {
+      adjudicate: (_line: string, _signal: AbortSignal, envelope: { images: number; files: number }) => {
+        envelopes.push(envelope)
+        return envelope.files > 0
+          ? Promise.reject(new Error('/goal 不接受 PDF 附件，请先移除'))
+          : Promise.resolve(undefined)
+      },
+      track: vi.fn(),
+      lexicon: { getSnapshot: () => new Map(), subscribe: () => () => {} },
+    } as unknown as InputTriggerController
+    const shell = new SessionInputShell({
+      actx: {} as never,
+      inputTriggers: () => inputTriggers,
+      defaultSink: sink,
+      commandImages,
+      commandFiles,
+    })
+    const file = 'file-1' as DraftAttachmentId
+    shell.addFiles([file])
+    shell.setDraft('/goal fix build')
+    shell.submit('queue')
+    await vi.waitFor(() => {
+      expect(shell.notices.getSnapshot()).toMatchObject({
+        level: 'error',
+        text: '/goal 不接受 PDF 附件，请先移除',
+      })
+    })
+    expect(envelopes).toEqual([{ images: 0, files: 1 }])
+    expect(sink).not.toHaveBeenCalled()
+    expect(shell.snapshot).toMatchObject({ phase: 'plain', draft: '/goal fix build' })
+    expect(shell.snapshot.fileIds).toEqual([file])
+  })
+
+  it('keeps the typed-line images refusal surface unchanged over the same envelope (symmetric regression)', async () => {
+    const sink = vi.fn(() => Promise.resolve({ kind: 'success' as const }))
+    const envelopes: Array<{ images: number; files: number }> = []
+    const inputTriggers = {
+      adjudicate: (_line: string, _signal: AbortSignal, envelope: { images: number; files: number }) => {
+        envelopes.push(envelope)
+        return envelope.images > 0
+          ? Promise.reject(new Error('/goal 不接受图片附件，请先移除图片'))
+          : Promise.resolve(undefined)
+      },
+      track: vi.fn(),
+      lexicon: { getSnapshot: () => new Map(), subscribe: () => () => {} },
+    } as unknown as InputTriggerController
+    const shell = new SessionInputShell({
+      actx: {} as never,
+      inputTriggers: () => inputTriggers,
+      defaultSink: sink,
+      commandImages,
+      commandFiles,
+    })
+    const image = 'img-1' as DraftAttachmentId
+    shell.addImages([image])
+    shell.setDraft('/goal fix build')
+    shell.submit('queue')
+    await vi.waitFor(() => {
+      expect(shell.notices.getSnapshot()).toMatchObject({
+        level: 'error',
+        text: '/goal 不接受图片附件，请先移除图片',
+      })
+    })
+    expect(envelopes).toEqual([{ images: 1, files: 0 }])
+    expect(sink).not.toHaveBeenCalled()
+    expect(shell.snapshot.imageIds).toEqual([image])
+    expect(shell.snapshot.fileIds).toEqual([])
+    expect(shell.snapshot.draft).toBe('/goal fix build')
   })
 })

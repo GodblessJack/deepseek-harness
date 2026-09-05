@@ -280,7 +280,7 @@ describe('scenario: images ride an accepting command through the real pipeline',
     fireEvent.keyDown(b.textarea, { key: 'Enter' })
     await vi.waitFor(() => { expect(b.execute).toHaveBeenCalledWith('/vision 这张图是什么', [PNG]) })
     // The envelope the controller forwarded to matchEnter carried the count.
-    expect(b.envelopes).toEqual([{ images: 1 }])
+    expect(b.envelopes).toEqual([{ images: 1, files: 0 }])
     expect(b.serialize).toHaveBeenCalledWith(['img-1'])
     await vi.waitFor(() => { expect(b.shell.snapshot.draft).toBe('') })
     expect(b.release).toHaveBeenCalledWith(['img-1'])
@@ -293,7 +293,7 @@ describe('scenario: images ride an accepting command through the real pipeline',
     act(() => { b.shell.setDraft('/goal 发布') })
     fireEvent.keyDown(b.textarea, { key: 'Enter' })
     await vi.waitFor(() => { expect(b.execute).toHaveBeenCalledWith('/goal 发布', []) })
-    expect(b.envelopes).toEqual([{ images: 0 }])
+    expect(b.envelopes).toEqual([{ images: 0, files: 0 }])
     expect(b.serialize).not.toHaveBeenCalled()
     expect(b.release).not.toHaveBeenCalled()
   })

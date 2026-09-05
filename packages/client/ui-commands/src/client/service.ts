@@ -311,10 +311,12 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
    * args-tolerant.
    *
    * Envelope policy: an enter submission carrying images resolves only
-   * through a command declaring image acceptance. Every other command route —
-   * popup, non-accepting claim, bare detached execute — throws the refusal
-   * so the machine surfaces one composer notice and the draft and images
-   * stay in place; nothing executes and nothing is dropped.
+   * through a command declaring image acceptance, and one carrying files
+   * resolves through no command route at all (no claim carries a file payload
+   * channel). Every other command route — popup, non-accepting claim, bare
+   * detached execute — throws the refusal so the machine surfaces one
+   * composer notice and the draft and attachments stay in place; nothing
+   * executes and nothing is dropped.
    */
   private async matchEnter(
     session: ClientSessionContext,
@@ -332,10 +334,14 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     const refuseImages = (): never => {
       throw new Error(this.t('notice.imagesUnsupported', { command: name }))
     }
+    const refuseFiles = (): never => {
+      throw new Error(this.t('notice.filesUnsupported', { command: name }))
+    }
     const contribution = this.live.contributions.get(name)
     if (contribution !== undefined && contribution.available(session)) {
       if (!bare) return undefined
       if (envelope.images > 0) refuseImages()
+      if (envelope.files > 0) refuseFiles()
       this.openPopup(name, contribution.ui, session, { via: 'enter', token })
       return 'handled'
     }
@@ -348,16 +354,21 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
       const decoration = this.live.decorations.get(name)
       if (decoration !== undefined && decoration.available(session)) {
         if (envelope.images > 0) refuseImages()
+        if (envelope.files > 0) refuseFiles()
         this.openPopup(name, decoration.ui, session, { via: 'enter', token })
         return 'handled'
       }
     }
     if (desc.input !== undefined) {
+      // Image acceptance never widens to files: no claim carries a file
+      // payload channel, so the files refusal is unconditional.
       if (envelope.images > 0 && desc.input.images !== true) refuseImages()
+      if (envelope.files > 0) refuseFiles()
       return { claim: this.leadingClaim(desc, session) }
     }
     if (!bare) return undefined
     if (envelope.images > 0) refuseImages()
+    if (envelope.files > 0) refuseFiles()
     this.consumeVia(session.sessionId, { via: 'enter', token })
     this.runDetached(desc, session, trimmed)
     return 'handled'

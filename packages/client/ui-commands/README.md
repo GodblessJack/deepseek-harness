@@ -31,9 +31,9 @@ Mount this plugin alongside `ui-input-trigger` and `ui-conversation`; the `/` so
 
 A contribution is a client-owned command — a host-name collision fails loud. A decoration adds a bare-invocation popup to an EXISTING host command: the host command keeps its catalog row, its argument claim, and its lifecycle logging, and a decorated name with no host row in the session's directory never fires. Menu queries fuzzy-match ordered, case-insensitive subsequences of command names; prefixes rank first.
 
-### Image-carrying submissions
+### Image- and file-carrying submissions
 
-When the composer submits with image attachments, only a host command declaring `input.images` proceeds; every other command route throws the localized `imagesUnsupported` refusal, which renders as a transient toast while the draft and images stay in place — a command can never consume the text and strand the images.
+When the composer submits with image attachments, only a host command declaring `input.images` proceeds; every other command route throws the localized `imagesUnsupported` refusal, which renders as a transient toast while the draft and images stay in place — a command can never consume the text and strand the images. PDF drafts have no accepting route at all (no claim carries a file payload channel), so an enter adjudication carrying them throws the localized `filesUnsupported` refusal on the same surface — including for a command that accepts images.
 
 -----
 

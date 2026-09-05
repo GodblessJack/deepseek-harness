@@ -471,9 +471,11 @@ describe('attachment upload button', () => {
     const typed = PDF()
     // A PDF whose browser-declared type is empty still routes by file name.
     const untyped = new File([Uint8Array.of(3)], 'report.pdf', { type: '' })
-    act(() => { fireEvent.change(pick(result, [png, typed, untyped])) })
+    // The name check is case-insensitive: an uppercase extension routes too.
+    const upper = new File([Uint8Array.of(4)], 'report.PDF', { type: 'application/pdf' })
+    act(() => { fireEvent.change(pick(result, [png, typed, untyped, upper])) })
     expect(addImages).toHaveBeenCalledWith([png])
-    expect(addFiles).toHaveBeenCalledWith([typed, untyped])
+    expect(addFiles).toHaveBeenCalledWith([typed, untyped, upper])
   })
 
   it('announces an addFiles rejection and admits an immediate same-file repeat', () => {

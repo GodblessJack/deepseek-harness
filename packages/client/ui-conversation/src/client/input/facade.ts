@@ -415,19 +415,18 @@ export class SessionInputShell implements SessionInput {
       }
       return
     }
-    // Claimed pre-gate: a claim that does not declare image acceptance never
-    // submits while images are attached — one notice, everything retained.
-    // Enter-time adjudication applies the same policy for unclaimed lines
-    // inside the command source itself.
+    // Claimed pre-gates: a claim that does not declare image acceptance never
+    // submits while images are attached, and no claim carries a file payload
+    // channel (claim.submit receives images only), so ANY claimed submit with
+    // PDF drafts attached would leave the files silently riding the next
+    // plain message — one notice, everything retained. Enter-time
+    // adjudication applies the same two policies for unclaimed typed lines
+    // inside the command source itself (the envelope carries both counts).
     const before = this.snapshot
     if (before.phase === 'claimed' && this.imageIds.length > 0 && before.claim?.images !== true) {
       this.notify('error', this.deps.commandImages.unsupportedNotice(before.claim?.token ?? before.draft))
       return
     }
-    // No claim carries a file payload channel (claim.submit receives images
-    // only), so ANY claimed submit with PDF drafts attached would leave the
-    // files silently riding the next plain message — refuse symmetrically:
-    // one notice, everything retained.
     if (before.phase === 'claimed' && this.fileIds.length > 0) {
       this.notify('error', this.deps.commandFiles.unsupportedNotice(before.claim?.token ?? before.draft))
       return
@@ -907,7 +906,10 @@ export class SessionInputShell implements SessionInput {
       this.dispatchRun(({ type: 'adjudicated', attempt, outcome: undefined }))
       return
     }
-    inputTriggers.adjudicate(draft.trim(), attempt.signal, { images: this.imageIds.length }).then(
+    inputTriggers.adjudicate(draft.trim(), attempt.signal, {
+      images: this.imageIds.length,
+      files: this.fileIds.length,
+    }).then(
       (outcome: PickOutcome) => {
         if (this.dead(attempt)) return
         this.dispatchRun(({ type: 'adjudicated', attempt, outcome }))
