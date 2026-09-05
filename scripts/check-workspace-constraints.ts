@@ -167,6 +167,8 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
     'resources/sql/**/*.sql',
   ],
   '@deepseek-ai/dsh-skill-badge': ['assets'],
+  // The bundled pdf skill ships its body and extraction script as package assets.
+  '@deepseek-ai/dsh-skill-pdf': ['assets'],
   // tsdown shares the repository/pack code between the lib entry and the bin
   // through a hashed chunk. The committed bin.js is the link target pnpm can
   // resolve at install time, before the build produces lib/bin.js.
