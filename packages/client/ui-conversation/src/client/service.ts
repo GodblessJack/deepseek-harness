@@ -18,7 +18,9 @@ import type {
 } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ImageMediaType } from '@deepseek-ai/dsh-attachment'
-import type { ComposerAttachment } from './contract/slots.ts'
+import type {
+  ComposerAttachment, FileDraftAttachment, ImageDraftAttachment,
+} from './contract/slots.ts'
 import type { QueueAction, QueueItemId } from './contract/queue.ts'
 import type { ComposerBlocks } from './contract/composer-blocks.ts'
 import type {
@@ -64,12 +66,40 @@ export interface IConversation {
   loadOlder(): Promise<void>
 }
 
-/** Create one browser-only draft descriptor; only its id enters input state. */
-function browserDraftAttachment(file: File): ComposerAttachment {
+/** The only admitted browser-declared media type for draft files. */
+export const DRAFT_FILE_MEDIA_TYPE = 'application/pdf'
+
+/**
+ * Frontend intake ceiling on PDF drafts per message (the input-state
+ * pre-check; nothing server-side depends on it).
+ */
+export const MAX_DRAFT_FILES_PER_MESSAGE = 4
+
+/**
+ * Per-file byte ceiling mirrored from the workspace-upload endpoint's
+ * default for the intake pre-check; the endpoint re-enforces its configured
+ * cap authoritatively.
+ */
+export const MAX_DRAFT_FILE_BYTES = 20 * 1024 * 1024
+
+/** Workspace-upload route the draft-file flow posts to. */
+const WORKSPACE_UPLOAD_PATH = '/api/workspace.upload'
+
+/** Create one browser-only image draft; only its id enters input state. */
+function browserDraftAttachment(file: File): ImageDraftAttachment {
   return {
     kind: 'image',
     id: randomUUID() as DraftAttachmentId,
     previewUrl: URL.createObjectURL(file),
+    file,
+  }
+}
+
+/** Create one browser-only file draft; only its id enters input state. */
+function browserDraftFile(file: File): FileDraftAttachment {
+  return {
+    kind: 'file',
+    id: randomUUID() as DraftAttachmentId,
     file,
   }
 }
@@ -82,7 +112,7 @@ function browserDraftAttachment(file: File): ComposerAttachment {
  * reads the dimensions into an immutable echo snapshot, so this late write
  * does not require a store notification.
  */
-function probeDimensions(attachment: ComposerAttachment): void {
+function probeDimensions(attachment: ImageDraftAttachment): void {
   if (typeof Image !== 'function') return
   const probe = new Image()
   probe.onload = () => {
@@ -143,6 +173,67 @@ export class UnsupportedImageMediaTypeError extends Error {
   }
 }
 
+/** Unsupported browser-declared draft-file type, localized by the UI boundary. */
+export class UnsupportedFileMediaTypeError extends Error {
+  /** Browser-declared MIME value, possibly empty. */
+  readonly mediaType: string
+
+  /** @param mediaType - Browser-declared MIME value, possibly empty. */
+  constructor(mediaType: string) {
+    super(`unsupported file media type: ${mediaType || '(empty)'}`)
+    this.name = 'UnsupportedFileMediaTypeError'
+    this.mediaType = mediaType
+  }
+}
+
+/** Workspace-upload endpoint refusal; the message carries the HTTP status line text. */
+export class WorkspaceUploadError extends Error {
+  /** HTTP status code of the refusing response. */
+  readonly status: number
+
+  /**
+   * @param status - HTTP status code of the refusing response.
+   * @param statusText - the response's status line text, possibly empty.
+   */
+  constructor(status: number, statusText: string) {
+    super(`workspace upload failed (${status}${statusText === '' ? '' : ` ${statusText}`})`)
+    this.name = 'WorkspaceUploadError'
+    this.status = status
+  }
+}
+
+/**
+ * Byte count as compact binary units with one separating space
+ * (`512 B`, `12 KB`, `1 MB`, `1.5 MB`).
+ * @param bytes - the byte count.
+ * @returns the unit text.
+ */
+export function uploadSizeText(bytes: number): string {
+  const units = ['B', 'KB', 'MB', 'GB'] as const
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  return `${unit === 0 || Number.isInteger(value) ? value : value.toFixed(1)} ${units[unit]}`
+}
+
+/**
+ * The verbatim model-visible reference line for one uploaded draft file; the
+ * stored workspace path names the file (the uploaded name may have been
+ * sanitized or disambiguated server-side), so the declared name stays out of
+ * the line.
+ * @param name - the browser file's declared name (sender context only).
+ * @param path - the workspace-relative path the upload endpoint returned.
+ * @param bytes - the stored byte count.
+ * @returns the `[attached file] path (size)` reference line.
+ */
+export function formatUploadReference(name: string, path: string, bytes: number): string {
+  void name
+  return `[attached file] ${path} (${uploadSizeText(bytes)})`
+}
+
 /** Scope-addressed conversation service (root singleton, provided as `conversation`). */
 export class ConversationController extends Service implements IConversation {
   /** The per-session input machine registry (SessionInputResolver face). */
@@ -164,7 +255,7 @@ export class ConversationController extends Service implements IConversation {
     this.blocks = config.blocks
     ctx.effect(() => () => {
       for (const attachment of this.draftAttachments.values()) {
-        revokePreview(attachment.previewUrl)
+        if (attachment.kind === 'image') revokePreview(attachment.previewUrl)
       }
       this.draftAttachments.clear()
     }, 'conversation draft attachments')
@@ -183,23 +274,28 @@ export class ConversationController extends Service implements IConversation {
   }
 
   /**
-   * Submit ordered draft images with text through one host admission. A local
-   * submission echo enters the session snapshot synchronously; serialization
-   * and the prompt round-trip start after the browser can paint it. On the
-   * echo's observed retirement the draft images hand their preview URLs to
-   * the durable image cache and leave the registry; on failure they stay
-   * registered so the composer can restore them.
+   * Submit ordered draft images and PDF files with text through one host
+   * admission. A local submission echo enters the session snapshot
+   * synchronously; serialization, the PDF uploads, and the prompt round-trip
+   * start after the browser can paint it. Each draft file uploads to the
+   * session workspace first; its verbatim reference line then leads the text
+   * part (`references\n\n text`). On the echo's observed retirement the draft
+   * images hand their preview URLs to the durable image cache and both kinds
+   * leave the registry; on failure they stay registered so the composer can
+   * restore them.
    * @param session - target session.
    * @param text - serialized prompt text.
-   * @param imageIds - ordered draft-local attachment ids.
+   * @param imageIds - ordered draft-local image ids.
+   * @param fileIds - ordered draft-local PDF file ids.
    * @param mode - queue or steer delivery selected by composer policy.
    * @param signal - optional cancellation for the complete Host admission.
-   * @returns the Host admission outcome; local attachment preparation failures reject.
+   * @returns the Host admission outcome; local attachment preparation and upload failures reject.
    */
   async sendSession(
     session: SessionFace,
     text: string,
     imageIds: readonly DraftAttachmentId[],
+    fileIds: readonly DraftAttachmentId[],
     mode: InputSubmitMode,
     signal?: AbortSignal,
   ): Promise<SubmitOutcome> {
@@ -207,10 +303,14 @@ export class ConversationController extends Service implements IConversation {
     if (attachments.length !== imageIds.length) {
       throw new Error('conversation.sendSession: one or more draft images are no longer available')
     }
+    const files = this.draftFiles(fileIds)
+    if (files.length !== fileIds.length) {
+      throw new Error('conversation.sendSession: one or more draft files are no longer available')
+    }
     if (session.getSnapshot().subagent !== null) {
       const uploaded = await this.serializeImages(attachments.map(attachment => attachment.file))
-      const content = [...uploaded, ...(text === '' ? [] : [{ type: 'text' as const, text }])]
-      const result = await session.prompt(content, mode, signal)
+      const references = await this.uploadDraftFiles(session.sessionId, files)
+      const result = await session.prompt(withFileReferences(uploaded, references, text), mode, signal)
       return result.ok ? { kind: 'success' } : { kind: 'error' }
     }
     let finishRetirement: ((retirement: PendingSubmissionRetirement) => void) | undefined
@@ -227,6 +327,7 @@ export class ConversationController extends Service implements IConversation {
       })),
       onRetire: (settlement) => {
         this.settleSubmittedImages(session.sessionId, attachments, settlement)
+        this.settleSubmittedFiles(files, settlement)
         finishRetirement?.(settlement)
       },
     })
@@ -234,7 +335,8 @@ export class ConversationController extends Service implements IConversation {
     try {
       await nextPaint()
       const uploaded = await this.serializeImages(attachments.map(attachment => attachment.file))
-      content = [...uploaded, ...(text === '' ? [] : [{ type: 'text' as const, text }])]
+      const references = await this.uploadDraftFiles(session.sessionId, files)
+      content = withFileReferences(uploaded, references, text)
     } catch (error) {
       submission.abandon()
       throw error
@@ -250,7 +352,7 @@ export class ConversationController extends Service implements IConversation {
    * @param files - browser files to register after MIME validation.
    * @returns ordered draft descriptors.
    */
-  createDraftImages(files: readonly File[]): readonly ComposerAttachment[] {
+  createDraftImages(files: readonly File[]): readonly ImageDraftAttachment[] {
     for (const file of files) imageMediaType(file.type)
     return files.map((file) => {
       const attachment = browserDraftAttachment(file)
@@ -261,15 +363,43 @@ export class ConversationController extends Service implements IConversation {
   }
 
   /**
+   * Create runtime-only PDF draft files (no preview URL, no dimension probe).
+   * @param files - browser files to register after media-type validation.
+   * @returns ordered draft descriptors.
+   */
+  createDraftFiles(files: readonly File[]): readonly FileDraftAttachment[] {
+    for (const file of files) draftFileMediaType(file.type)
+    return files.map((file) => {
+      const attachment = browserDraftFile(file)
+      this.draftAttachments.set(attachment.id, attachment)
+      return attachment
+    })
+  }
+
+  /**
    * Resolve ordered input-state ids to runtime-owned draft images.
    * @param ids - draft attachment ids.
-   * @returns descriptors that remain live, in requested order.
+   * @returns image drafts that remain live, in requested order.
    */
-  draftImages(ids: readonly DraftAttachmentId[]): readonly ComposerAttachment[] {
-    const attachments: ComposerAttachment[] = []
+  draftImages(ids: readonly DraftAttachmentId[]): readonly ImageDraftAttachment[] {
+    const attachments: ImageDraftAttachment[] = []
     for (const id of ids) {
       const attachment = this.draftAttachments.get(id)
-      if (attachment !== undefined) attachments.push(attachment)
+      if (attachment?.kind === 'image') attachments.push(attachment)
+    }
+    return attachments
+  }
+
+  /**
+   * Resolve ordered input-state ids to runtime-owned draft files.
+   * @param ids - draft attachment ids.
+   * @returns file drafts that remain live, in requested order.
+   */
+  draftFiles(ids: readonly DraftAttachmentId[]): readonly FileDraftAttachment[] {
+    const attachments: FileDraftAttachment[] = []
+    for (const id of ids) {
+      const attachment = this.draftAttachments.get(id)
+      if (attachment?.kind === 'file') attachments.push(attachment)
     }
     return attachments
   }
@@ -297,15 +427,32 @@ export class ConversationController extends Service implements IConversation {
     const attachment = this.draftAttachments.get(id)
     if (attachment === undefined) return
     this.draftAttachments.delete(id)
-    revokePreview(attachment.previewUrl)
+    if (attachment.kind === 'image') revokePreview(attachment.previewUrl)
   }
 
   /**
    * Release a set of browser-owned draft images.
    * @param attachments - descriptors to release.
    */
-  releaseDraftImages(attachments: readonly ComposerAttachment[]): void {
+  releaseDraftImages(attachments: readonly ImageDraftAttachment[]): void {
     for (const attachment of attachments) this.releaseDraftImage(attachment.id)
+  }
+
+  /**
+   * Release one browser-owned draft file (nothing to revoke; the browser
+   * keeps the File).
+   * @param id - draft attachment id.
+   */
+  releaseDraftFile(id: DraftAttachmentId): void {
+    this.draftAttachments.delete(id)
+  }
+
+  /**
+   * Release a set of browser-owned draft files.
+   * @param attachments - descriptors to release.
+   */
+  releaseDraftFiles(attachments: readonly FileDraftAttachment[]): void {
+    for (const attachment of attachments) this.releaseDraftFile(attachment.id)
   }
 
   /** Apply one operation to a pending queue occurrence. */
@@ -368,7 +515,7 @@ export class ConversationController extends Service implements IConversation {
    */
   private settleSubmittedImages(
     sessionId: SessionId,
-    attachments: readonly ComposerAttachment[],
+    attachments: readonly ImageDraftAttachment[],
     retirement: PendingSubmissionRetirement,
   ): void {
     if (retirement.reason !== 'observed') return
@@ -386,6 +533,68 @@ export class ConversationController extends Service implements IConversation {
   /** Convert browser files to canonical base64 prompt parts. */
   private serializeImages(images: readonly File[]): Promise<Parameters<SessionFace['prompt']>[0]> {
     return Promise.all(images.map(async file => ({ type: 'image' as const, ...await this.encodeImage(file) })))
+  }
+
+  /**
+   * Release submitted draft files once their echo retires as observed: the
+   * workspace owns the stored bytes, so the registry entries simply drop.
+   * Failed: nothing changes; the ids stay registered for the composer's
+   * restore path.
+   * @param files - the submission's file drafts, in send order.
+   * @param retirement - the echo's settlement.
+   */
+  private settleSubmittedFiles(
+    files: readonly FileDraftAttachment[],
+    retirement: PendingSubmissionRetirement,
+  ): void {
+    if (retirement.reason !== 'observed') return
+    for (const file of files) this.draftAttachments.delete(file.id)
+  }
+
+  /**
+   * Upload ordered draft files to the session workspace and collect their
+   * verbatim reference lines.
+   * @param sessionId - owning session (the upload route's workspace scope).
+   * @param files - file drafts in send order.
+   * @returns reference lines in send order.
+   */
+  private async uploadDraftFiles(
+    sessionId: SessionId,
+    files: readonly FileDraftAttachment[],
+  ): Promise<readonly string[]> {
+    const references: string[] = []
+    for (const file of files) {
+      const { path, bytes } = await this.uploadDraftFile(sessionId, file)
+      references.push(formatUploadReference(file.file.name, path, bytes))
+    }
+    return references
+  }
+
+  /**
+   * Upload one draft file through the workspace-upload endpoint.
+   * @param sessionId - owning session (the upload route's workspace scope).
+   * @param attachment - the draft file to store.
+   * @returns the stored workspace-relative path and byte count.
+   * @throws WorkspaceUploadError when the endpoint refuses the file or answers a malformed body.
+   */
+  private async uploadDraftFile(
+    sessionId: SessionId,
+    attachment: FileDraftAttachment,
+  ): Promise<{ path: string; bytes: number }> {
+    const form = new FormData()
+    form.append('file', attachment.file, attachment.file.name)
+    const res = await fetch(
+      `${WORKSPACE_UPLOAD_PATH}?sessionId=${encodeURIComponent(sessionId)}`,
+      { method: 'POST', body: form },
+    )
+    if (!res.ok) throw new WorkspaceUploadError(res.status, res.statusText)
+    const body: unknown = await res.json()
+    if (typeof body !== 'object' || body === null) throw new WorkspaceUploadError(res.status, 'malformed response')
+    const { path, bytes } = body as { path?: unknown; bytes?: unknown }
+    if (typeof path !== 'string' || typeof bytes !== 'number') {
+      throw new WorkspaceUploadError(res.status, 'malformed response')
+    }
+    return { path, bytes }
   }
 
   /** Canonical base64 wire form of one browser image file. */
@@ -408,6 +617,32 @@ function imageMediaType(value: string): ImageMediaType {
     default:
       throw new UnsupportedImageMediaTypeError(value)
   }
+}
+
+function draftFileMediaType(value: string): 'application/pdf' {
+  if (value === DRAFT_FILE_MEDIA_TYPE) return value
+  throw new UnsupportedFileMediaTypeError(value)
+}
+
+/**
+ * Compose the prompt content: uploaded image parts first, then one text part
+ * whose body leads with the upload reference lines (joined by newlines)
+ * ahead of the user text. Without references the content is exactly the
+ * image-and-text form.
+ * @param uploaded - serialized image parts in send order.
+ * @param references - upload reference lines in send order.
+ * @param text - serialized user text, possibly empty.
+ * @returns the complete prompt content.
+ */
+function withFileReferences(
+  uploaded: Parameters<SessionFace['prompt']>[0],
+  references: readonly string[],
+  text: string,
+): Parameters<SessionFace['prompt']>[0] {
+  const composed = references.length === 0
+    ? text
+    : references.join('\n') + (text === '' ? '' : `\n\n${text}`)
+  return [...uploaded, ...(composed === '' ? [] : [{ type: 'text' as const, text: composed }])]
 }
 
 function revokePreview(url: string): void {

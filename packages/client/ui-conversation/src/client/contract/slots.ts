@@ -22,8 +22,8 @@ import type { ComposerSubmitGesture, InputSubmitMode } from './composer-submissi
 import type { ConversationSnapshot } from './snapshot.ts'
 import type { ViewTab } from './views.ts'
 
-/** Browser-owned image that has not crossed the durable Host boundary. */
-export interface ComposerAttachment {
+/** Browser-owned image draft that has not crossed the durable Host boundary. */
+export interface ImageDraftAttachment {
   kind: 'image'
   id: DraftAttachmentId
   file: File
@@ -33,6 +33,16 @@ export interface ComposerAttachment {
   /** Intrinsic pixel height, filled asynchronously by the intake header probe. */
   height?: number
 }
+
+/** Browser-owned PDF file draft; it uploads to the session workspace on send. */
+export interface FileDraftAttachment {
+  kind: 'file'
+  id: DraftAttachmentId
+  file: File
+}
+
+/** One browser-owned composer draft: a previewed image or an upload-bound file. */
+export type ComposerAttachment = ImageDraftAttachment | FileDraftAttachment
 
 /** Input state handed to the optional attachment presentation plugin. */
 export interface ComposerAttachmentsOwnerProps {
@@ -44,6 +54,8 @@ export interface ComposerAttachmentsOwnerProps {
   onAddImages: (files: readonly File[]) => void
   /** Remove one draft image through the Conversation service. */
   onRemoveImage: (id: DraftAttachmentId) => void
+  /** Remove one draft PDF file through the Conversation service. */
+  onRemoveFile: (id: DraftAttachmentId) => void
   /** Display-ready limits for the drop invitation. */
   dropLimits?: { readonly count: number; readonly size: string } | undefined
 }
@@ -266,6 +278,8 @@ export interface ComposerBarInjected {
   keyboard: ComposerKeyboard | undefined
   addImages: ((files: readonly File[]) => string | null) | undefined
   removeImage: ((id: DraftAttachmentId) => void) | undefined
+  addFiles: ((files: readonly File[]) => string | null) | undefined
+  removeFile: ((id: DraftAttachmentId) => void) | undefined
   draftImages: ((ids: readonly DraftAttachmentId[]) => readonly ComposerAttachment[]) | undefined
   resolveSubmitMode: (
     running: boolean,

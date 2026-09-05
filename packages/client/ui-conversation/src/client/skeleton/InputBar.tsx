@@ -40,7 +40,7 @@ import css from './InputBar.module.css'
 export type InputBarProps = ComposerBarProps
 
 export function InputBar({
-  useSession, useInput, inputActions, keyboard, addImages, removeImage, draftImages,
+  useSession, useInput, inputActions, keyboard, addImages, removeImage, removeFile, draftImages,
   resolveSubmitMode, toggleCommandMenu, stop, command, t,
   renderSlot, useNotices, useLexicon, useMenuLauncher,
   useProjection, sessionId, variant, disabled: inert = false, blocked,
@@ -396,6 +396,7 @@ export function InputBar({
           canAcceptDrop,
           onAddImages: intakeImages,
           onRemoveImage: (id) => { removeImage?.(id) },
+          onRemoveFile: (id) => { removeFile?.(id) },
           dropLimits: imageLimits === undefined ? undefined : {
             count: imageLimits.maxImagesPerMessage,
             size: imageSizeText(imageLimits.maxImageBytes),

@@ -64,6 +64,7 @@ export interface SessionInputDeps {
   defaultSink(
     text: string,
     imageIds: readonly DraftAttachmentId[],
+    fileIds: readonly DraftAttachmentId[],
     mode: InputSubmitMode,
     signal: AbortSignal,
   ): Promise<SubmitOutcome>
@@ -118,6 +119,7 @@ interface DetachedDraft {
   readonly draft: string
   readonly occurrences: readonly Occurrence[]
   readonly imageIds: readonly DraftAttachmentId[]
+  readonly fileIds: readonly DraftAttachmentId[]
 }
 
 /**
@@ -151,23 +153,26 @@ export class SessionInputShell implements SessionInput {
   private noticeSeq = 0
   private lastMirroredDraft = ''
   private imageIds: readonly DraftAttachmentId[] = []
+  /** Ordered PDF draft ids (the file channel of {@link imageIds}). */
+  private fileIds: readonly DraftAttachmentId[] = []
   private disposed = false
   /** Draft persistence mirror (Conversation store write; receives the clipboard projection). */
   private mirrorFn: ((text: string) => void) | undefined
   /** Live lexicon subscription disposer; undefined until the controller resolves. */
   private lexiconOff: (() => void) | undefined
-  /** Default sends retained until admission settles or scope disposal releases their images. */
+  /** Default sends retained until admission settles or scope disposal releases their attachments. */
   private readonly detachedDrafts = new Map<number, DetachedDraft>()
   /** Failed default sends waiting to be restored together in submission order. */
   private readonly failedDetached = new Map<number, DetachedDraft>()
   /** Revision of the last automatic failure restoration. */
   private failedRestoreRev: number | undefined
   private restoringFailures = false
-  private imageFlightSeq = 0
-  /** Image-only sends retained until admission settles or scope disposal releases their images. */
-  private readonly imageFlights = new Map<number, {
+  private attachmentFlightSeq = 0
+  /** Attachment-only sends retained until admission settles or scope disposal releases their attachments. */
+  private readonly attachmentFlights = new Map<number, {
     readonly controller: AbortController
     readonly imageIds: readonly DraftAttachmentId[]
+    readonly fileIds: readonly DraftAttachmentId[]
   }>()
 
   constructor(private readonly deps: SessionInputDeps) {
@@ -290,6 +295,28 @@ export class SessionInputShell implements SessionInput {
     return true
   }
 
+  /** Append ordered PDF draft ids unless an admission transaction is locked. */
+  addFiles(ids: readonly DraftAttachmentId[]): boolean {
+    if (this.snapshot.phase === 'adjudicating' || this.snapshot.phase === 'submitting') return false
+    if (ids.length === 0) return true
+    this.fileIds = [...this.fileIds, ...ids]
+    this.publish()
+    return true
+  }
+
+  /**
+   * Remove one PDF draft id from this draft. Busy admission phases refuse, like
+   * {@link addFiles} for the same reason as {@link removeImage}.
+   * @param id - draft attachment id.
+   */
+  removeFile(id: DraftAttachmentId): void {
+    if (this.snapshot.phase === 'adjudicating' || this.snapshot.phase === 'submitting') return
+    const next = this.fileIds.filter(candidate => candidate !== id)
+    if (next.length === this.fileIds.length) return
+    this.fileIds = next
+    this.publish()
+  }
+
   /**
    * Remove one image id from this draft. Busy admission phases refuse, like
    * {@link addImages}: a removal landing while a command submit serializes
@@ -320,10 +347,13 @@ export class SessionInputShell implements SessionInput {
    * unit) and the undo history is cut, so Ctrl/Cmd-Z cannot resurrect sent
    * content (the command path gets the same discipline from submit-settled).
    * @param imageIds - admitted image ids to remove from this draft.
+   * @param fileIds - admitted PDF draft ids to remove from this draft.
    */
-  commitSend(imageIds: readonly DraftAttachmentId[]): void {
-    const submitted = new Set(imageIds)
-    this.imageIds = this.imageIds.filter(id => !submitted.has(id))
+  commitSend(imageIds: readonly DraftAttachmentId[], fileIds: readonly DraftAttachmentId[]): void {
+    const submittedImages = new Set(imageIds)
+    this.imageIds = this.imageIds.filter(id => !submittedImages.has(id))
+    const submittedFiles = new Set(fileIds)
+    this.fileIds = this.fileIds.filter(id => !submittedFiles.has(id))
     this.dispatchRun(({ type: 'send-committed' }))
   }
 
@@ -358,22 +388,23 @@ export class SessionInputShell implements SessionInput {
    * dismisses and the menu tracks frozen.
    */
   submit(mode: InputSubmitMode = 'queue'): void {
-    if (this.snapshot.draft.trim() === '' && this.imageIds.length > 0) {
+    if (this.snapshot.draft.trim() === '' && (this.imageIds.length > 0 || this.fileIds.length > 0)) {
       if (this.snapshot.phase === 'plain') {
         const imageIds = [...this.imageIds]
+        const fileIds = [...this.fileIds]
         const controller = new AbortController()
-        this.imageFlightSeq += 1
-        const flight = this.imageFlightSeq
-        this.imageFlights.set(flight, { controller, imageIds })
-        this.commitSend(imageIds)
-        void this.deps.defaultSink('', imageIds, mode, controller.signal).then((outcome) => {
-          if (this.disposed || !this.imageFlights.delete(flight)) return
+        this.attachmentFlightSeq += 1
+        const flight = this.attachmentFlightSeq
+        this.attachmentFlights.set(flight, { controller, imageIds, fileIds })
+        this.commitSend(imageIds, fileIds)
+        void this.deps.defaultSink('', imageIds, fileIds, mode, controller.signal).then((outcome) => {
+          if (this.disposed || !this.attachmentFlights.delete(flight)) return
           if (outcome.kind === 'success') return
-          this.restoreImages(imageIds)
+          this.restoreAttachments(imageIds, fileIds)
           if (outcome.text !== undefined) this.notify('error', outcome.text)
         }, (error: unknown) => {
-          if (this.disposed || !this.imageFlights.delete(flight)) return
-          this.restoreImages(imageIds)
+          if (this.disposed || !this.attachmentFlights.delete(flight)) return
+          this.restoreAttachments(imageIds, fileIds)
           this.notify('error', error instanceof Error ? error.message : String(error))
         })
       }
@@ -562,18 +593,21 @@ export class SessionInputShell implements SessionInput {
   // ---- wiring-layer extras (not on the frozen SessionInput face) ----
 
   /**
-   * Teardown the shell and return every browser-owned image still retained by
-   * the draft or an unsettled default send.
-   * @returns image ids the scope disposer must release.
+   * Teardown the shell and return every browser-owned attachment still
+   * retained by the draft or an unsettled default send, split by kind.
+   * @returns image and file ids the scope disposer must release.
    */
-  dispose(): readonly DraftAttachmentId[] {
-    if (this.disposed) return []
-    const retained = new Set(this.imageIds)
+  dispose(): { readonly imageIds: readonly DraftAttachmentId[]; readonly fileIds: readonly DraftAttachmentId[] } {
+    if (this.disposed) return { imageIds: [], fileIds: [] }
+    const retainedImages = new Set(this.imageIds)
+    const retainedFiles = new Set(this.fileIds)
     for (const record of this.detachedDrafts.values()) {
-      for (const imageId of record.imageIds) retained.add(imageId)
+      for (const imageId of record.imageIds) retainedImages.add(imageId)
+      for (const fileId of record.fileIds) retainedFiles.add(fileId)
     }
-    for (const flight of this.imageFlights.values()) {
-      for (const imageId of flight.imageIds) retained.add(imageId)
+    for (const flight of this.attachmentFlights.values()) {
+      for (const imageId of flight.imageIds) retainedImages.add(imageId)
+      for (const fileId of flight.fileIds) retainedFiles.add(fileId)
       flight.controller.abort()
     }
     this.disposed = true
@@ -582,8 +616,8 @@ export class SessionInputShell implements SessionInput {
     this.editor.setRootElement(null)
     this.detachedDrafts.clear()
     this.failedDetached.clear()
-    this.imageFlights.clear()
-    return [...retained]
+    this.attachmentFlights.clear()
+    return { imageIds: [...retainedImages], fileIds: [...retainedFiles] }
   }
 
   /** Read the live input state (guard derivation reads here). */
@@ -689,15 +723,17 @@ export class SessionInputShell implements SessionInput {
   ): void {
     const imageIds = [...this.imageIds]
     this.imageIds = []
+    const fileIds = [...this.fileIds]
+    this.fileIds = []
     const occurrences = this.projection.occurrences
-    const record = { draft, occurrences, imageIds }
+    const record = { draft, occurrences, imageIds, fileIds }
     this.detachedDrafts.set(attempt.seq, record)
     if (this.failedRestoreRev === this.rev) {
       this.failedDetached.clear()
       this.failedRestoreRev = undefined
     }
     if (occurrences.length === 0) {
-      this.settleSink(attempt, this.deps.defaultSink(draft.trim(), imageIds, mode, attempt.signal))
+      this.settleSink(attempt, this.deps.defaultSink(draft.trim(), imageIds, fileIds, mode, attempt.signal))
       return
     }
     const inputTriggers = this.deps.inputTriggers?.()
@@ -721,7 +757,7 @@ export class SessionInputShell implements SessionInput {
           cursor = part.offset + part.length
         }
         out += draft.slice(cursor)
-        this.settleSink(attempt, this.deps.defaultSink(out.trim(), imageIds, mode, attempt.signal))
+        this.settleSink(attempt, this.deps.defaultSink(out.trim(), imageIds, fileIds, mode, attempt.signal))
       },
       (error: unknown) => {
         if (this.dead(attempt)) return
@@ -758,7 +794,7 @@ export class SessionInputShell implements SessionInput {
     const record = this.detachedDrafts.get(attempt.seq)
     if (record === undefined) return
     this.detachedDrafts.delete(attempt.seq)
-    this.restoreImages(record.imageIds)
+    this.restoreAttachments(record.imageIds, record.fileIds)
     this.failedDetached.set(attempt.seq, record)
     if (this.projection.clipboardText === '' || this.failedRestoreRev === this.rev) {
       this.restoreFailedDrafts()
@@ -821,6 +857,15 @@ export class SessionInputShell implements SessionInput {
     }
   }
 
+  /** Return failed-send attachments to the head of the rail (ids still resolve — release happens only after success). */
+  private restoreAttachments(
+    imageIds: readonly DraftAttachmentId[],
+    fileIds: readonly DraftAttachmentId[],
+  ): void {
+    this.restoreImages(imageIds)
+    this.restoreFiles(fileIds)
+  }
+
   /** Return failed-send images to the head of the rail (ids still resolve — release happens only after success). */
   private restoreImages(imageIds: readonly DraftAttachmentId[]): void {
     if (imageIds.length === 0) return
@@ -828,6 +873,16 @@ export class SessionInputShell implements SessionInput {
     const restored = imageIds.filter(id => !current.has(id))
     if (restored.length === 0) return
     this.imageIds = [...restored, ...this.imageIds]
+    this.publish()
+  }
+
+  /** Return failed-send PDF drafts to the head of the rail (ids still resolve — release happens only after success). */
+  private restoreFiles(fileIds: readonly DraftAttachmentId[]): void {
+    if (fileIds.length === 0) return
+    const current = new Set(this.fileIds)
+    const restored = fileIds.filter(id => !current.has(id))
+    if (restored.length === 0) return
+    this.fileIds = [...restored, ...this.fileIds]
     this.publish()
   }
 
@@ -904,6 +959,7 @@ export class SessionInputShell implements SessionInput {
     return {
       draft: this.projection.clipboardText,
       imageIds: this.imageIds,
+      fileIds: this.fileIds,
       draftRev: this.rev,
       phase: core.phase,
       ...(core.claim !== undefined ? { claim: core.claim } : {}),

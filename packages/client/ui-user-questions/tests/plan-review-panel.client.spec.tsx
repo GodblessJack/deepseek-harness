@@ -89,6 +89,7 @@ const trajectoryState: TrajectoryState = {
 const inputState: InputState = {
   draft: '',
   imageIds: [],
+  fileIds: [],
   draftRev: 0,
   phase: 'plain',
   occurrences: [],

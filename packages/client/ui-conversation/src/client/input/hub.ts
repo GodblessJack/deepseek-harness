@@ -21,6 +21,7 @@ import type {
 import type { InputSubmitMode } from '../contract/composer-submission.ts'
 import type { PopupDismissFace } from './facade.ts'
 import { SessionInputShell } from './facade.ts'
+import { WorkspaceUploadError } from '../service.ts'
 
 /** Structural command face for per-session popup resolution. */
 interface CommandFace {
@@ -39,11 +40,13 @@ interface ConversationAttachmentFace {
     session: SessionFace,
     text: string,
     imageIds: readonly DraftAttachmentId[],
+    fileIds: readonly DraftAttachmentId[],
     mode: InputSubmitMode,
     signal?: AbortSignal,
   ): Promise<SubmitOutcome>
   serializeDraftImages(imageIds: readonly DraftAttachmentId[]): Promise<readonly SubmitImageAttachment[]>
   releaseDraftImage(id: DraftAttachmentId): void
+  releaseDraftFile(id: DraftAttachmentId): void
 }
 
 /** Session-addressed input facade registry (SessionInputResolver face + composer-layer extras). */
@@ -88,7 +91,7 @@ export class InputHub implements SessionInputResolver {
       inputTriggers: () => this.controller(actx),
       popup: () => this.popup(actx),
       queue: queueReadFaceOf(session),
-      defaultSink: (text, imageIds, mode, signal) => this.sink(session, text, imageIds, mode, signal),
+      defaultSink: (text, imageIds, fileIds, mode, signal) => this.sink(session, text, imageIds, fileIds, mode, signal),
       steerQueue: () => { void this.steerQueue(session, shell) },
       commandImages: {
         serialize: ids => this.conversation().serializeDraftImages(ids),
@@ -124,7 +127,8 @@ export class InputHub implements SessionInputResolver {
         const drafts = shell.dispose()
         this.shells.delete(id)
         const conversation = this.rootCtx.get('conversation') as ConversationAttachmentFace | undefined
-        for (const imageId of drafts) conversation?.releaseDraftImage(imageId)
+        for (const imageId of drafts.imageIds) conversation?.releaseDraftImage(imageId)
+        for (const fileId of drafts.fileIds) conversation?.releaseDraftFile(fileId)
       }
     }, 'conversation.input: session shell')
     return shell
@@ -170,17 +174,27 @@ export class InputHub implements SessionInputResolver {
    * Default sink: optimistic clear + prompt. The session is always a real
    * host entity (materialized when its workspace was picked), so there is
    * exactly one path; a failed first prompt is an ordinary prompt failure
-   * (banner via promptError, draft restored only while untouched).
+   * (banner via promptError, draft restored only while untouched). A refused
+   * draft-file upload folds into one localized error outcome (its message
+   * keeps the HTTP status line) so the composer restores the drafts and
+   * announces the copy.
    */
   private sink(
     session: SessionFace,
     text: string,
     imageIds: readonly DraftAttachmentId[],
+    fileIds: readonly DraftAttachmentId[],
     mode: InputSubmitMode,
     signal: AbortSignal,
   ): Promise<SubmitOutcome> {
-    if (text === '' && imageIds.length === 0) return Promise.resolve({ kind: 'success' })
-    return this.conversation().sendSession(session, text, imageIds, mode, signal)
+    if (text === '' && imageIds.length === 0 && fileIds.length === 0) return Promise.resolve({ kind: 'success' })
+    return this.conversation().sendSession(session, text, imageIds, fileIds, mode, signal)
+      .catch((error: unknown): SubmitOutcome => {
+        if (error instanceof WorkspaceUploadError) {
+          return { kind: 'error', text: this.t('file.uploadFailed', { reason: error.message }) }
+        }
+        throw error
+      })
   }
 
   /**

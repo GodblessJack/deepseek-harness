@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
-  ComposerAttachment, ComposerAttachmentsProps,
+  ComposerAttachmentsProps, ImageDraftAttachment,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { AttachmentRail } from '../AttachmentRail.tsx'
 import type { AttachmentRailItem } from '../AttachmentRail.tsx'
@@ -9,16 +9,16 @@ import { ImageLightbox } from '../ImageLightbox.tsx'
 import { attachmentRailLabels, dropOverlayLabels, lightboxLabels } from './labels.ts'
 import css from './ComposerAttachments.module.css'
 
-/** Rail item retaining its browser-owned attachment for callbacks. */
+/** Rail item retaining its browser-owned image draft for callbacks. */
 interface ComposerRailItem extends AttachmentRailItem {
-  attachment: ComposerAttachment
+  attachment: ImageDraftAttachment
 }
 
 /** Draft-image rail, document drop target, and original-image preview slot entry. */
 export function ComposerAttachments({
   attachments, canAcceptDrop, onAddImages, onRemoveImage, dropLimits, t,
 }: ComposerAttachmentsProps) {
-  const [preview, setPreview] = useState<ComposerAttachment | null>(null)
+  const [preview, setPreview] = useState<ImageDraftAttachment | null>(null)
   const [dragActive, setDragActive] = useState(false)
   const dragDepth = useRef(0)
   const closePreview = useCallback(() => { setPreview(null) }, [])
@@ -78,13 +78,18 @@ export function ComposerAttachments({
     }
   }, [canAcceptDrop, onAddImages])
 
-  const railItems = useMemo<ComposerRailItem[]>(() => attachments.map(attachment => ({
-    id: attachment.id,
-    previewUrl: attachment.previewUrl,
-    alt: attachment.file.name || t('image.pending'),
-    removeLabel: t('image.remove', { name: attachment.file.name }),
-    attachment,
-  })), [attachments, t])
+  // The thumbnail rail is image-only: file drafts (PDFs) render through the
+  // file chip presentation instead.
+  const railItems = useMemo<ComposerRailItem[]>(() => attachments.flatMap(attachment =>
+    attachment.kind === 'image'
+      ? [{
+        id: attachment.id,
+        previewUrl: attachment.previewUrl,
+        alt: attachment.file.name || t('image.pending'),
+        removeLabel: t('image.remove', { name: attachment.file.name }),
+        attachment,
+      }]
+      : []), [attachments, t])
 
   return (
     <>

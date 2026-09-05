@@ -17,7 +17,10 @@ import type {
 } from './contract/slots.ts'
 import type { InputNotice } from './contract/input.ts'
 import { createConversationStore } from './stores.ts'
-import { ConversationController, UnsupportedImageMediaTypeError } from './service.ts'
+import {
+  ConversationController, MAX_DRAFT_FILE_BYTES, MAX_DRAFT_FILES_PER_MESSAGE, UnsupportedFileMediaTypeError,
+  UnsupportedImageMediaTypeError, uploadSizeText,
+} from './service.ts'
 import type { IConversation } from './service.ts'
 import { ComposerBlockRegistry } from './input/blocks.ts'
 import type { ComposerBlock } from './contract/composer-blocks.ts'
@@ -253,6 +256,8 @@ export function apply(ctx: Context): void {
           keyboard: undefined,
           addImages: undefined,
           removeImage: undefined,
+          addFiles: undefined,
+          removeFile: undefined,
           draftImages: undefined,
           resolveSubmitMode: (running, gesture, steeringAvailable) =>
             submissionPolicy.resolve(running, gesture, steeringAvailable),
@@ -286,6 +291,30 @@ export function apply(ctx: Context): void {
         removeImage: (id) => {
           conversation.releaseDraftImage(id)
           shell.removeImage(id)
+        },
+        addFiles: (files) => {
+          // Count and size precede the media-type admission: both pre-checks
+          // mirror limits the workspace-upload endpoint re-enforces.
+          if (shell.snapshot.fileIds.length + files.length > MAX_DRAFT_FILES_PER_MESSAGE) {
+            return t('file.tooMany', { count: MAX_DRAFT_FILES_PER_MESSAGE })
+          }
+          if (files.some(file => file.size > MAX_DRAFT_FILE_BYTES)) {
+            return t('file.fileTooLarge', { size: uploadSizeText(MAX_DRAFT_FILE_BYTES) })
+          }
+          try {
+            const drafts = conversation.createDraftFiles(files)
+            if (!shell.addFiles(drafts.map(draft => draft.id))) {
+              conversation.releaseDraftFiles(drafts)
+            }
+            return null
+          } catch (error: unknown) {
+            if (error instanceof UnsupportedFileMediaTypeError) return t('file.unsupportedType')
+            return error instanceof Error ? error.message : String(error)
+          }
+        },
+        removeFile: (id) => {
+          conversation.releaseDraftFile(id)
+          shell.removeFile(id)
         },
         draftImages: ids => conversation.draftImages(ids),
         resolveSubmitMode: (running, gesture, steeringAvailable) =>

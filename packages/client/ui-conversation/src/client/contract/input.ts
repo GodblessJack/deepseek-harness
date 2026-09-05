@@ -323,6 +323,8 @@ export interface InputState {
   readonly draft: string
   /** Ordered runtime-only image ids; bytes and URLs stay in ConversationController. */
   readonly imageIds: readonly DraftAttachmentId[]
+  /** Ordered runtime-only PDF file ids; bytes stay in ConversationController. */
+  readonly fileIds: readonly DraftAttachmentId[]
   /** Monotonic editor revision (span CAS compares against this). */
   readonly draftRev: number
   readonly phase: 'plain' | 'adjudicating' | 'claimed' | 'submitting'

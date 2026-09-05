@@ -89,7 +89,7 @@ None; this package neither assembles nor sends a provider request.
 
 These limits define the current attachment surface. They are package constraints, not a general image-viewer comparison or a task backlog.
 
-- **Images only** — non-image files have no rail card or history renderer yet; DeepSeek Chat-style file cards and upload progress wait until the composer accepts non-image attachments.
+- **Images only** — the rail renders image drafts only; the composer's PDF drafts (`kind: 'file'`) pass through unrendered, and DeepSeek Chat-style file cards and upload progress wait on their own presentation.
 - **No zoom or download in the lightbox** — the preview renders the original at fit-to-viewport size only.
 - **The lightbox does not trap focus** — it sets `aria-modal` and restores focus on close, but Tab can reach the page behind it.
 

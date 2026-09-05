@@ -59,6 +59,7 @@ function props(overrides: Partial<ComposerAttachmentsOwnerProps> = {}): Composer
     canAcceptDrop: true,
     onAddImages: () => {},
     onRemoveImage: () => {},
+    onRemoveFile: () => {},
     t,
     ...overrides,
   } as unknown as ComposerAttachmentsProps
@@ -156,5 +157,15 @@ describe('ComposerAttachments', () => {
     expect(view.getByAltText('待发送图片')).toBeTruthy()
     fireEvent.click(view.getByTitle('查看原图'))
     expect(view.getByAltText('原图')).toBeTruthy()
+  })
+
+  it('renders no rail thumbnail for a file-kind draft attachment', () => {
+    const pdf: ComposerAttachment = {
+      kind: 'file',
+      id: 'draft-pdf' as ComposerAttachment['id'],
+      file: new File([Uint8Array.of(1)], 'doc.pdf', { type: 'application/pdf' }),
+    }
+    const view = render(<ComposerAttachments {...props({ attachments: [pdf] })} />)
+    expect(view.queryByRole('group')).toBeNull()
   })
 })

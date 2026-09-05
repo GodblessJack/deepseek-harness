@@ -2,7 +2,10 @@
 export { apply, inject } from './apply.ts'
 export { UiConversation } from './conversation/assembly.ts'
 export type { ConversationBinding } from './conversation/assembly.ts'
-export { ConversationController, UnsupportedImageMediaTypeError } from './service.ts'
+export {
+  ConversationController, UnsupportedFileMediaTypeError, UnsupportedImageMediaTypeError,
+  WorkspaceUploadError, formatUploadReference, uploadSizeText,
+} from './service.ts'
 export type { IConversation } from './service.ts'
 export type {
   ConversationContextReader, ConversationLocation,
@@ -52,7 +55,8 @@ export type {
   ConversationInjected, ConversationSessionHeaderInjected, ConversationSessionHeaderSlotProps,
   ConversationSessionInjected, ConversationSessionSlotProps, ConversationSlotProps,
   ConversationStore, ConvViewOwnerProps, ConvViewProps, EmptyWorkspaceOwnerProps,
-  HeroAgentPresetOwnerProps, HeroBrandMarkOwnerProps, InputControlOwnerProps, InputZone,
+  FileDraftAttachment, HeroAgentPresetOwnerProps, HeroBrandMarkOwnerProps, ImageDraftAttachment,
+  InputControlOwnerProps, InputZone,
   MessageImageLoader, MessageImageSource, MessageImagesOwnerProps, RenderMessageImages, UseConversation,
   UseConversationViews,
 } from './contract/slots.ts'
