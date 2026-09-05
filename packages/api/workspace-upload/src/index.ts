@@ -4,7 +4,7 @@
  * @module @deepseek-ai/dsh-workspace-upload
  */
 
-import { mkdir, stat, writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
@@ -129,7 +129,7 @@ async function workspaceUploadResponse(
     })
   } catch {
     request.signal.throwIfAborted()
-    // Swallows the workspace filesystem failures (mkdir/stat/writeFile and
+    // Swallows the workspace filesystem failures (mkdir/writeFile and
     // the containment assert) for one 500 answer; request abort rethrows above.
     return new Response('upload failed', { status: 500 })
   }
@@ -185,11 +185,14 @@ export function resolveUploadTarget(workspaceRoot: string, filename: string): st
 
 /**
  * Write the uploaded bytes under the first unused target filename, creating
- * the `uploads/` directory on first use.
+ * the `uploads/` directory on first use. Each candidate opens with the
+ * exclusive-create flag, so two concurrent uploads of the same name land on
+ * distinct disambiguated targets instead of overwriting each other.
  * @param workspaceRoot - the session's absolute workspace cwd.
  * @param safeName - sanitized submitted filename.
  * @param bytes - admitted file contents.
  * @returns the absolute path actually written.
+ * @throws the write failure when it is not a taken-name `EEXIST`.
  */
 async function writeFirstFreeTarget(
   workspaceRoot: string,
@@ -199,24 +202,12 @@ async function writeFirstFreeTarget(
   await mkdir(resolve(workspaceRoot, UPLOADS_DIRECTORY), { recursive: true })
   for (let index = 0; ; index += 1) {
     const target = resolveUploadTarget(workspaceRoot, disambiguatedName(safeName, index))
-    if (await pathExists(target)) continue
-    await writeFile(target, bytes)
-    return target
-  }
-}
-
-/**
- * Whether one path currently exists.
- * @param path - absolute path to probe.
- * @returns true when the path resolves to any filesystem entry.
- */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await stat(path)
-    return true
-  } catch {
-    // Swallows only the not-found answer of stat: the parent directory was
-    // just created, and any other filesystem failure resurfaces on write.
-    return false
+    try {
+      await writeFile(target, bytes, { flag: 'wx' })
+      return target
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST') continue
+      throw error
+    }
   }
 }

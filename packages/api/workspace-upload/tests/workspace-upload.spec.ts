@@ -198,6 +198,22 @@ describe('workspace upload real Loader composition', () => {
     await expect(readFile(join(workspaceRoot, 'uploads', 'big.pdf'))).rejects.toThrow()
   })
 
+  it('admits a file exactly at maxFileBytes and rejects one byte over', async () => {
+    const { sessionId, workspaceRoot } = await sessionWithWorkspace()
+    const exact = Buffer.concat([PDF, Buffer.alloc(128 - PDF.byteLength)])
+    expect(exact.byteLength).toBe(128)
+    const admitted = await post(sessionId, pdfForm(exact, 'exact.pdf'))
+    expect(admitted.status).toBe(200)
+    await expect(admitted.json()).resolves.toEqual({ path: 'uploads/exact.pdf', bytes: 128 })
+    await expect(readFile(join(workspaceRoot, 'uploads', 'exact.pdf'))).resolves.toEqual(exact)
+    const over = await post(
+      sessionId,
+      pdfForm(Buffer.concat([PDF, Buffer.alloc(128 - PDF.byteLength + 1)]), 'over.pdf'),
+    )
+    expect(over.status).toBe(413)
+    await expect(readFile(join(workspaceRoot, 'uploads', 'over.pdf'))).rejects.toThrow()
+  })
+
   it('disambiguates a duplicate name', async () => {
     const { sessionId, workspaceRoot } = await sessionWithWorkspace()
     await expect(post(sessionId, pdfForm(PDF, 'doc.pdf'))).resolves.toMatchObject({ status: 200 })

@@ -78,7 +78,7 @@ One Host half ([`src/index.ts`](src/index.ts)) registers the exact `POST /api/wo
 
 ### Admission order
 
-The handler validates the `sessionId` query parameter, resolves the live session through `ctx.get('sessions')`, reads `session.header.cwd` as the workspace root, then parses the multipart body. Admission checks the `file` field, the leading `%PDF-` magic bytes, and the configured byte cap before any filesystem write. The target path resolves under `<cwd>/uploads/` and passes a lexical containment assert against the workspace root before the write; filename sanitization already removed separators and parent segments, so the assert is a defense-in-depth invariant that fails the request with 500 rather than storing outside the workspace.
+The handler validates the `sessionId` query parameter, resolves the live session through `ctx.get('sessions')`, reads `session.header.cwd` as the workspace root, then parses the multipart body. Admission checks the `file` field, the leading `%PDF-` magic bytes, and the configured byte cap before any filesystem write. The target path resolves under `<cwd>/uploads/` and passes a lexical containment assert against the workspace root before the write; filename sanitization already removed separators and parent segments, so the assert is a defense-in-depth invariant that fails the request with 500 rather than storing outside the workspace. The write opens each candidate filename with exclusive-create semantics, so a taken name — including one taken by a concurrent same-name upload — advances to the next disambiguated candidate instead of being overwritten.
 
 </details>
 
@@ -123,6 +123,7 @@ These limits define when this package is a poor fit or needs special operational
 - **PDF-only admission** — the file must start with the `%PDF-` magic bytes; other formats (and PDFs whose header does not lead the file) answer 400.
 - **20 MiB default per-file cap** — `maxFileBytes` defaults to `20971520`; larger uploads answer 413 until the deployment raises the cap.
 - **Live sessions only** — the workspace root comes from the live session store; a session id that is not currently live answers 404.
+- **Cookie authentication is not bound to the target sessionId** — any request that passes Connection's browser-session authentication can write into any live session's workspace; this is a single-user deployment assumption, and multi-user deployments need session-scoped binding.
 
 <a id="dev-note"></a>
 ### Dev Note
