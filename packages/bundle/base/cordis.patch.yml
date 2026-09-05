@@ -286,6 +286,11 @@
       name: '@deepseek-ai/dsh-skill-badge'
       disabled: true
 
+    # Bundled PDF text-extraction skill: enabled for every session so agents
+    # can read uploaded workspace PDFs through assets/scripts/pdf2text.py.
+    - id: skill-pdf
+      name: '@deepseek-ai/dsh-skill-pdf'
+
     - id: tool-skill
       name: '@deepseek-ai/dsh-tool-skill'
 
