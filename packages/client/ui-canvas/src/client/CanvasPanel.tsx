@@ -1,12 +1,13 @@
 /**
- * Right-side canvas panel: artifact tabs plus the selected artifact's viewer.
+ * Canvas conversation view: artifact tabs plus the selected artifact's
+ * viewer, as one 'conversation.view' tab beside Chat and Trajectory.
  * @module @deepseek-ai/dsh-client-ui-canvas/client/CanvasPanel
  */
 
 import { useEffect, useState, type ReactNode } from 'react'
 import type { CanvasArtifact } from '@deepseek-ai/dsh-host-canvas/types'
 import type { CanvasView } from './controller.ts'
-import { canvasArtifactUrl, canvasAttachmentUrl } from './controller.ts'
+import { downloadArtifactBody } from './controller.ts'
 import type { CanvasPanelProps } from './slots.ts'
 import css from './CanvasPanel.module.css'
 
@@ -65,14 +66,12 @@ function printDocument(artifact: CanvasArtifact): string {
 }
 
 /**
- * Panel header: the panel-level actions live here — copy and print for the
- * selected artifact, close for the details column. The close entry exists in
- * every panel state because the canvas slot otherwise shadows the host panel
- * header's own close button.
+ * View header: the view-level actions live here — download, copy, and print
+ * for the selected artifact, plus the back-to-chat navigation that replaces
+ * the details-column close button of the panel's earlier form.
  */
-function PanelHeader({ controller, sessionId, selected, content }: {
-  controller: { close(): void }
-  sessionId: string
+function PanelHeader({ backToChat, selected, content }: {
+  backToChat: () => void
   selected: { id: string } | null
   content: CanvasArtifact | null
 }): ReactNode {
@@ -97,14 +96,15 @@ function PanelHeader({ controller, sessionId, selected, content }: {
         {selected !== null
           ? (
             <>
-              <a
+              <button
+                type="button"
                 className={css.action}
                 title="下载作品本体"
-                href={canvasArtifactUrl(sessionId, selected.id)}
-                download=""
+                onClick={() => { if (content !== null) downloadArtifactBody(content) }}
+                disabled={content === null}
               >
                 下载
-              </a>
+              </button>
               {content !== null
                 ? (
                   <>
@@ -119,9 +119,9 @@ function PanelHeader({ controller, sessionId, selected, content }: {
         <button
           type="button"
           className={css.action}
-          title="关闭画布"
-          aria-label="关闭画布"
-          onClick={() => { controller.close() }}
+          title="回到对话"
+          aria-label="回到对话"
+          onClick={backToChat}
         >
           ✕
         </button>
@@ -130,8 +130,10 @@ function PanelHeader({ controller, sessionId, selected, content }: {
   )
 }
 
-/** Right-side canvas panel component. */
-export function CanvasPanel({ canvas, sessionId }: CanvasPanelProps): ReactNode {
+/** Canvas conversation view component. */
+export function CanvasPanel({
+  canvas, sessionId, viewRequest, completeViewRequest, openView,
+}: CanvasPanelProps): ReactNode {
   const controller = canvas
   const [view, setView] = useState<CanvasView | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -170,6 +172,18 @@ export function CanvasPanel({ canvas, sessionId }: CanvasPanelProps): ReactNode 
       setLocalSelected(null)
     }
   }
+  const backToChat = () => { openView('chat', '') }
+
+  // One-shot focus request from outside (a future opener): select the addressed
+  // artifact, then acknowledge so the request does not replay on re-renders.
+  useEffect(() => {
+    if (viewRequest === null || viewRequest.view !== 'canvas') return
+    if (viewRequest.focus !== '') {
+      setLocalSelected(viewRequest.focus)
+      void controller.openArtifact(viewRequest.focus)
+    }
+    completeViewRequest()
+  }, [viewRequest, completeViewRequest, controller])
 
   // Selected id is derived before the early returns so the content effect can
   // run unconditionally above them (hooks may not follow a conditional return).
@@ -195,7 +209,7 @@ export function CanvasPanel({ canvas, sessionId }: CanvasPanelProps): ReactNode 
   if (error !== null) {
     return (
       <div className={css.panel}>
-        <PanelHeader controller={controller} sessionId={sessionId} selected={null} content={null} />
+        <PanelHeader backToChat={backToChat} selected={null} content={null} />
         <div className={css.empty}>画布加载失败: {error}</div>
       </div>
     )
@@ -203,7 +217,7 @@ export function CanvasPanel({ canvas, sessionId }: CanvasPanelProps): ReactNode 
   if (view === null) {
     return (
       <div className={css.panel}>
-        <PanelHeader controller={controller} sessionId={sessionId} selected={null} content={null} />
+        <PanelHeader backToChat={backToChat} selected={null} content={null} />
         <div className={css.empty}>加载中…</div>
       </div>
     )
@@ -215,10 +229,10 @@ export function CanvasPanel({ canvas, sessionId }: CanvasPanelProps): ReactNode 
   if (artifacts.length === 0) {
     return (
       <div className={css.panel}>
-        <PanelHeader controller={controller} sessionId={sessionId} selected={null} content={null} />
+        <PanelHeader backToChat={backToChat} selected={null} content={null} />
         <div className={css.empty}>
           <div>画布还是空的。</div>
-          <div>在对话里说「在画布上写一个 …」, 或者点下面的按钮填入示例。</div>
+          <div>切回「对话」页说「在画布上写一个 …」, 或者点下面的按钮填入示例。</div>
           <button type="button" className={css.demo} onClick={() => void fillDemo()}>填入示例</button>
         </div>
       </div>
@@ -227,7 +241,7 @@ export function CanvasPanel({ canvas, sessionId }: CanvasPanelProps): ReactNode 
 
   return (
     <div className={css.panel}>
-      <PanelHeader controller={controller} sessionId={sessionId} selected={selected} content={content} />
+      <PanelHeader backToChat={backToChat} selected={selected} content={content} />
       <div className={css.tabs}>
         {artifacts.map(artifact => (
           <button
@@ -248,15 +262,9 @@ export function CanvasPanel({ canvas, sessionId }: CanvasPanelProps): ReactNode 
             ? `${selected.title} · ${selected.kind}${content !== null ? ` · ${content.content.length} 字符` : ''}`
             : ''}
           {selected?.attachments?.map(attachment => (
-            <a
-              key={attachment.name}
-              className={css.download}
-              href={canvasAttachmentUrl(String(sessionId), selected.id, attachment.name)}
-              download={attachment.name}
-              title={`下载 ${attachment.name} (${attachment.bytes} 字节)`}
-            >
-              {attachment.name.toLowerCase().endsWith('.pdf') ? '下载 PDF' : `下载 ${attachment.name}`}
-            </a>
+            <span key={attachment.name} className={css.download} title={`附件 ${attachment.name} (${attachment.bytes} 字节)`}>
+              {`附件 ${attachment.name}`}
+            </span>
           ))}
         </div>
         <div className={css.stage}>

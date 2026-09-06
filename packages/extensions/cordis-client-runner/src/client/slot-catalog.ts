@@ -1324,6 +1324,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     slotInject: '',
     declaredBy: 'an entry in \'conversation.session\' (client-ui-conversation), so it exists while that entry is mounted',
     occupants: [
+      'client-ui-canvas CanvasPanel id \'canvas\'',
       'client-ui-chat ChatView id \'chat\'',
       'client-ui-trajectory TrajectoryView id \'trajectory\'',
     ],
@@ -1361,7 +1362,6 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     slotInject: '',
     declaredBy: 'an entry in \'root\' (client-ui-layout), so it exists while that entry is mounted',
     occupants: [
-      'client-ui-canvas CanvasPanel',
       'client-ui-chat DetailsPanel',
     ],
     replaceRisk: 'shadows-shipped-ui',

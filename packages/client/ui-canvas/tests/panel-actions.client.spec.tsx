@@ -64,11 +64,20 @@ function fakeRemote(view: FakeView): CanvasRemote {
   }
 }
 
-function renderPanel(view: FakeView): { close: ReturnType<typeof vi.fn> } {
-  const close = vi.fn()
-  const controller = new CanvasController(fakeRemote(view), sessionId, { open: () => {}, close })
-  render(<CanvasPanel canvas={controller} sessionId={sessionId} {...injectedStubs} />)
-  return { close }
+function renderPanel(view: FakeView): { openView: ReturnType<typeof vi.fn> } {
+  const openView = vi.fn()
+  const controller = new CanvasController(fakeRemote(view), sessionId)
+  render(
+    <CanvasPanel
+      canvas={controller}
+      sessionId={sessionId}
+      viewRequest={null}
+      openView={openView}
+      completeViewRequest={vi.fn()}
+      {...injectedStubs}
+    />,
+  )
+  return { openView }
 }
 
 const writeText = vi.fn(async () => undefined)
@@ -110,8 +119,17 @@ describe('CanvasPanel action bar', () => {
         select: async () => ({ ok: true as const, value: { ok: true, selected: null, message: '' } }),
         demo: async () => ({ ok: true as const, value: { ok: true, message: '' } }),
       }
-      const controller = new CanvasController(remote, sessionId, { open: () => {}, close: () => {} })
-      render(<CanvasPanel canvas={controller} sessionId={sessionId} {...injectedStubs} />)
+      const controller = new CanvasController(remote, sessionId)
+      render(
+        <CanvasPanel
+          canvas={controller}
+          sessionId={sessionId}
+          viewRequest={null}
+          openView={vi.fn()}
+          completeViewRequest={vi.fn()}
+          {...injectedStubs}
+        />,
+      )
       await act(async () => {})
       await act(async () => { vi.advanceTimersByTime(3000) })
       // three more polls at the same revision: content fetched exactly once
@@ -121,32 +139,34 @@ describe('CanvasPanel action bar', () => {
     }
   })
 
-  it('closes the details column from every panel state', async () => {
-    const { close } = renderPanel({ artifacts: [{ id: 'a1', title: 't', kind: 'text', content: 'x' }], selected: 'a1' })
+  it('navigates back to the chat view from every panel state', async () => {
+    const { openView } = renderPanel({ artifacts: [{ id: 'a1', title: 't', kind: 'text', content: 'x' }], selected: 'a1' })
     await settle()
-    const buttons = document.querySelectorAll('button[title="关闭画布"]')
+    const buttons = document.querySelectorAll('button[title="回到对话"]')
     expect(buttons.length).toBe(1)
     await act(async () => { buttons[0]!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
-    expect(close).toHaveBeenCalledTimes(1)
+    expect(openView).toHaveBeenCalledWith('chat', '')
   })
 
-  it('shows the close action on an empty canvas without copy or print', async () => {
-    const { close } = renderPanel({})
+  it('shows the back action on an empty canvas without copy or print', async () => {
+    const { openView } = renderPanel({})
     await settle()
-    expect(document.querySelector('button[title="关闭画布"]')).not.toBeNull()
+    expect(document.querySelector('button[title="回到对话"]')).not.toBeNull()
     expect(document.querySelector('button[title="复制全文"]')).toBeNull()
     expect(document.querySelector('button[title="在新标签打开并打印"]')).toBeNull()
-    await act(async () => { document.querySelector('button[title="关闭画布"]')!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
-    expect(close).toHaveBeenCalledTimes(1)
+    await act(async () => { document.querySelector('button[title="回到对话"]')!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+    expect(openView).toHaveBeenCalledWith('chat', '')
   })
 
-  it('offers a download link targeting the artifact-body endpoint', async () => {
+  it('downloads the artifact body as a browser-side blob', async () => {
     renderPanel({ artifacts: [{ id: 'a1', title: '报告', kind: 'markdown', content: 'x' }], selected: 'a1' })
     await settle()
-    const link = document.querySelector<HTMLAnchorElement>('a[title="下载作品本体"]')
-    expect(link).not.toBeNull()
-    expect(link!.getAttribute('href')).toBe('/api/canvas.artifact?sessionId=sess-1&artifactId=a1')
-    expect(link!.getAttribute('download')).toBe('')  // filename comes from the server's content-disposition
+    await settle()
+    await act(async () => { document.querySelector('button[title="下载作品本体"]')!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+    expect(createObjectURL).toHaveBeenCalledTimes(1)
+    const blob = createObjectURL.mock.calls[0]![0]
+    expect(blob.type).toBe('text/markdown')
+    expect(await blob.text()).toBe('x')
   })
 
   it('copies the selected artifact content to the clipboard', async () => {

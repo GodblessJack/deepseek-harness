@@ -1,8 +1,9 @@
 /**
  * Browser-local object layer over one Session's canvas store. The Host owns
  * the artifact store; this controller wraps the generated canvas Remote so
- * components receive plain snapshots plus a polling handle, and owns the
- * details-column open/close verbs the panel and card trigger.
+ * components receive plain snapshots plus a polling handle. View navigation
+ * (which conversation tab shows) belongs to the conversation view machinery,
+ * not here.
  * @module @deepseek-ai/dsh-client-ui-canvas/client/controller
  */
 
@@ -29,12 +30,6 @@ export interface CanvasRemote {
   demo: (request: CanvasDemoRequest) => Promise<RemoteResult<CanvasDemoResult>>
 }
 
-/** Layout verbs the controller triggers on user intent. */
-export interface CanvasLayoutActions {
-  readonly open: () => void
-  readonly close: () => void
-}
-
 /** One session's canvas view state as components consume it: summaries, no content. */
 export interface CanvasView {
   readonly artifacts: readonly CanvasArtifactSummary[]
@@ -45,38 +40,43 @@ export interface CanvasView {
 /** Content fetch outcome: the full artifact, or a failure message. */
 export type CanvasContentResult = { ok: true; artifact: CanvasArtifact } | { ok: false; message: string }
 
-/**
- * Build the downloads-channel URL for one artifact attachment.
- * @param sessionId - the session whose bucket holds the artifact.
- * @param artifactId - the artifact carrying the attachment.
- * @param name - the attachment download filename.
- * @returns the carrier-relative GET URL for the attachment download.
- */
-export function canvasAttachmentUrl(sessionId: string, artifactId: string, name: string): string {
-  const query = new URLSearchParams({ sessionId, artifactId, name })
-  return `/api/canvas.attachment?${query.toString()}`
-}
-
-/**
- * Build the downloads-channel URL for one artifact's body.
- * @param sessionId - the session whose bucket holds the artifact.
- * @param artifactId - the artifact whose body is downloaded.
- * @returns the carrier-relative GET URL for the artifact-body download.
- */
-export function canvasArtifactUrl(sessionId: string, artifactId: string): string {
-  const query = new URLSearchParams({ sessionId, artifactId })
-  return `/api/canvas.artifact?${query.toString()}`
-}
-
 /** Poll outcome: the next snapshot or a transport/business failure message. */
 export type CanvasPollResult = { ok: true; view: CanvasView } | { ok: false; message: string }
+
+/** Download filename for one artifact, derived from its title and kind. */
+export function canvasDownloadName(artifact: CanvasArtifactSummary): string {
+  const extension = artifact.kind === 'html' ? '.html' : artifact.kind === 'markdown' ? '.md' : '.txt'
+  return `${artifact.title.replace(/[\\/:*?"<>|]/g, '_')}${extension}`
+}
+
+/** Media type of one artifact kind, for browser-side downloads. */
+export function canvasMediaType(kind: CanvasArtifactSummary['kind']): string {
+  if (kind === 'html') return 'text/html'
+  if (kind === 'markdown') return 'text/markdown'
+  return 'text/plain'
+}
+
+/**
+ * Save one artifact's body as a browser download. The content already reached
+ * the browser through the canvas Remote (the panel loads it to render), so the
+ * download needs no server-side file channel.
+ * @param artifact - the full artifact record to save.
+ */
+export function downloadArtifactBody(artifact: CanvasArtifact): void {
+  const blob = new Blob([artifact.content], { type: canvasMediaType(artifact.kind) })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = canvasDownloadName(artifact)
+  anchor.click()
+  setTimeout(() => { URL.revokeObjectURL(url) }, 60_000)
+}
 
 /** Controller owning one session's remote calls and polling state. */
 export class CanvasController {
   constructor(
     private readonly remote: CanvasRemote,
     private readonly sessionId: SessionId,
-    private readonly layout: CanvasLayoutActions,
   ) {}
 
   /**
@@ -104,17 +104,12 @@ export class CanvasController {
   }
 
   /**
-   * Select one artifact (or deselect with null) and open the details column.
+   * Select one artifact (or deselect with null). Which conversation view shows
+   * the panel is the user's tab choice; selection alone changes no view.
    * @param id - the artifact id to select, or null to deselect.
    */
   async openArtifact(id: string | null): Promise<void> {
     await this.remote.select({ sessionId: this.sessionId, id })
-    this.layout.open()
-  }
-
-  /** Close the details column. */
-  close(): void {
-    this.layout.close()
   }
 
   /** Seed an empty canvas with demo artifacts. */

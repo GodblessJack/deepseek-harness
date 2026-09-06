@@ -38,7 +38,7 @@ describe('CanvasController', () => {
     const remote = fakeRemote({
       state: async () => ({ ok: true, value: { artifacts: [], selected: 'a1', rev: 2 } }),
     })
-    const controller = new CanvasController(remote, sessionId, { open: () => {}, close: () => {} })
+    const controller = new CanvasController(remote, sessionId)
     const result = await controller.poll()
     expect(result).toEqual({ ok: true, view: { artifacts: [], selected: 'a1', rev: 2 } })
     expect(remote.calls[0]).toEqual({ method: 'state', request: { sessionId } })
@@ -48,7 +48,7 @@ describe('CanvasController', () => {
     const remote = fakeRemote({
       state: async () => ({ ok: false, error: { code: 'transport', message: 'route down', details: {} } }),
     })
-    const controller = new CanvasController(remote, sessionId, { open: () => {}, close: () => {} })
+    const controller = new CanvasController(remote, sessionId)
     const result = await controller.poll()
     expect(result).toEqual({ ok: false, message: 'route down' })
   })
@@ -58,7 +58,7 @@ describe('CanvasController', () => {
     const remote = fakeRemote({
       get: async () => ({ ok: true, value: { ok: true, artifact, message: '' } }),
     })
-    const controller = new CanvasController(remote, sessionId, { open: () => {}, close: () => {} })
+    const controller = new CanvasController(remote, sessionId)
     const result = await controller.loadContent('a1')
     expect(result).toEqual({ ok: true, artifact })
     expect(remote.calls[0]).toEqual({ method: 'get', request: { sessionId, id: 'a1' } })
@@ -68,25 +68,23 @@ describe('CanvasController', () => {
     const remote = fakeRemote({
       get: async () => ({ ok: true, value: { ok: false, artifact: null, message: '作品不存在' } }),
     })
-    const controller = new CanvasController(remote, sessionId, { open: () => {}, close: () => {} })
+    const controller = new CanvasController(remote, sessionId)
     const result = await controller.loadContent('a9')
     expect(result).toEqual({ ok: false, message: '作品不存在' })
   })
 
-  it('openArtifact selects and opens the details column', async () => {
+  it('openArtifact selects the artifact', async () => {
     const select = vi.fn(async () => ({ ok: true, selected: 'a1', message: '已选中' }))
-    const open = vi.fn()
     const remote = fakeRemote({ select })
-    const controller = new CanvasController(remote, sessionId, { open, close: () => {} })
+    const controller = new CanvasController(remote, sessionId)
     await controller.openArtifact('a1')
     expect(select).toHaveBeenCalledWith({ sessionId, id: 'a1' })
-    expect(open).toHaveBeenCalledOnce()
   })
 
   it('fillDemo calls the demo Remote', async () => {
     const demo = vi.fn(async () => ({ ok: true, message: 'ok' }))
     const remote = fakeRemote({ demo })
-    const controller = new CanvasController(remote, sessionId, { open: () => {}, close: () => {} })
+    const controller = new CanvasController(remote, sessionId)
     await controller.fillDemo()
     expect(demo).toHaveBeenCalledWith({ sessionId })
   })

@@ -4,7 +4,7 @@
  * @module @deepseek-ai/dsh-client-ui-canvas/client/CanvasCard
  */
 
-import { useEffect, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
 import type { ToolCallBlock } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { CanvasCardProps } from './slots.ts'
@@ -34,17 +34,13 @@ export function parseCanvasCard(block: ToolCallBlock): ParsedCard | null {
 }
 
 /**
- * CanvasCard component. Auto-opens the details column once for a settled
- * write; clicking selects the artifact and opens the panel.
+ * CanvasCard component. Clicking selects the artifact; the canvas itself is
+ * the conversation's '画布' view tab, so the card selects and the user chooses
+ * when to switch views.
  */
 export function CanvasCard({ block, canvas }: CanvasCardProps): ReactNode {
   const controller = canvas
   const parsed = parseCanvasCard(block)
-
-  useEffect(() => {
-    if (parsed === null) return
-    void controller.openArtifact(parsed.id)
-  }, [parsed?.id, controller])
 
   const kindLabel = parsed !== null ? parsed.kind : '…'
   const sub = parsed !== null ? `${parsed.kind} · ${parsed.len} 字符` : '写入中…'
@@ -58,7 +54,7 @@ export function CanvasCard({ block, canvas }: CanvasCardProps): ReactNode {
         if (parsed === null) return
         void controller.openArtifact(parsed.id)
       }}
-      title={parsed !== null ? '点击在右侧打开' : '正在写入…'}
+      title={parsed !== null ? '点击选中;到「画布」页查看' : '正在写入…'}
     >
       <span className={css.ico}>{kindLabel.slice(0, 1).toUpperCase()}</span>
       <span className={css.main}>
