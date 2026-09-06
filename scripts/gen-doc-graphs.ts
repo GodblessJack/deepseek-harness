@@ -631,6 +631,22 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Composes the __DSH_BOOT__ entry graph from an incremental dsh.client scan, serves plugin bundles, and notifies rebuilt/graph-changed subscribers.',
   },
   {
+    key: 'canvas',
+    pkg: 'host-canvas',
+    title: 'Per-session canvas artifact store',
+    mode: 'seam',
+    consumers: ['ui-canvas', 'apiproxy'],
+    note: 'The service owns durable per-session buckets and the model-facing canvas tool; the browser half polls the state Remote and fetches artifact bodies per id, and host-plugin consumers (kg) land artifacts through the operate admission point.',
+  },
+  {
+    key: 'kg',
+    pkg: 'host-kg',
+    title: 'RAGFlow knowledge-graph aggregator',
+    mode: 'seam',
+    consumers: ['canvas'],
+    note: 'The kg_graph tool aggregates every RAGFlow dataset graph into one hub artifact written onto the canvas; RAGFlow credentials resolve per call through the credentials capability.',
+  },
+  {
     key: 'workflowEngine',
     pkg: 'workflow',
     title: 'Workflow script engine',

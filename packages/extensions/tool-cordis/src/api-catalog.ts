@@ -594,6 +594,55 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'canvas',
+    summary: 'The canvas host service: per-session artifact store persisted through the storage-domain facility, exposed as a Typert Remote (browser half polls `state`) and driving the model tool.',
+    description: 'The canvas host service: per-session artifact store persisted through the storage-domain facility, exposed as a Typert Remote (browser half polls `state`) and driving the model tool.',
+    methods: [
+      {
+        signature: 'async operate( sessionId: string, args: CanvasToolArgs, attachments?: readonly CanvasArtifactAttachment[], ): Promise<SnapshotMutationResult>',
+        description: 'All mutations (tool, Remote, and host-plugin consumers such as the knowledge-graph host) funnel through this single admission point. Host plugins call it with `{ op: \'write\', ... }` to land or refresh an artifact in place; the returned artifact carries the full content.',
+        parameters: [{ name: 'sessionId', description: 'the session whose canvas bucket receives the operation.' }, { name: 'args', description: 'the operation arguments, same vocabulary as the model tool.' }, { name: 'attachments', description: 'optional resolved attachments replacing the target\'s.' }],
+        returns: 'the mutation result with the full updated artifact.',
+      },
+      {
+        signature: 'async attachmentStream( sessionId: string, artifactId: string, name: string, ): Promise<CanvasAttachmentStream | undefined>',
+        description: 'Downloads channel: open one attached file for streaming.',
+        parameters: [{ name: 'sessionId', description: 'the session whose bucket holds the artifact.' }, { name: 'artifactId', description: 'the artifact carrying the attachment.' }, { name: 'name', description: 'the attachment download filename.' }],
+        returns: 'the file stream with response metadata, or undefined when the session, artifact, attachment, or file is unknown.',
+      },
+      {
+        signature: 'async artifactBodyStream( sessionId: string, artifactId: string, ): Promise<CanvasBodyStream | undefined>',
+        description: 'Open one artifact\'s body as a byte stream for download: the persisted content with the kind-derived media type and filename extension.',
+        parameters: [{ name: 'sessionId', description: 'the session whose bucket holds the artifact.' }, { name: 'artifactId', description: 'the artifact whose body is downloaded.' }],
+        returns: 'the body stream with media type, byte length, and download filename (title plus kind extension), or undefined when the session or artifact is unknown.',
+      },
+      {
+        signature: '@Remote(\'state\') state(request: CanvasStateRequest): CanvasState',
+        description: 'Browser half: per-session state (artifact summaries without content, selection, revision) — light enough to poll every second.',
+        parameters: [{ name: 'request', description: 'session identity whose bucket to read.' }],
+        returns: 'the artifact summaries, selection, and revision counter.',
+      },
+      {
+        signature: '@Remote(\'get\') get(request: CanvasGetRequest): CanvasGetResult',
+        description: 'Browser half: one artifact\'s full record including content, fetched when the polled revision or selection changes.',
+        parameters: [{ name: 'request', description: 'session identity and the artifact id to read.' }],
+        returns: 'the artifact, or a null artifact when the id is unknown.',
+      },
+      {
+        signature: '@Remote(\'select\') async select(request: CanvasSelectRequest): Promise<CanvasSelectResult>',
+        description: 'Browser half: select or deselect one artifact.',
+        parameters: [{ name: 'request', description: 'session identity and the artifact id to select (null deselects).' }],
+        returns: 'whether the selection changed and the new selected id.',
+      },
+      {
+        signature: '@Remote(\'demo\') async demo(request: CanvasDemoRequest): Promise<CanvasDemoResult>',
+        description: 'Browser half: seed an empty canvas with demo artifacts.',
+        parameters: [{ name: 'request', description: 'session identity whose empty bucket receives the demo seed.' }],
+        returns: 'whether the seed succeeded and its message.',
+      },
+    ],
+  },
+  {
     key: 'clientModules',
     summary: 'The web plugin table service: incremental `dsh.client` scan + wire composition + bundle route + index injection rows.',
     description: 'The web plugin table service: incremental `dsh.client` scan + wire composition + bundle route + index injection rows. Construction runs the activation scan synchronously — a malformed declaration or missing bundle among the already-loaded entries aggregates into one loud throw (FAILED fiber; the boot activation audit reports it).',
@@ -1186,6 +1235,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'disposer that detaches this controller.',
       },
     ],
+  },
+  {
+    key: 'kg',
+    summary: 'The kg host service: owns the config and registers the kg_graph tool.',
+    description: 'The kg host service: owns the config and registers the kg_graph tool.',
+    methods: [],
   },
   {
     key: 'llm',
@@ -3712,6 +3767,66 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'BrandedNumber',
     declaration: 'export type BrandedNumber<B extends string> = number & {\n    readonly [BRAND]: B;\n};',
+  },
+  {
+    name: 'CanvasArtifact',
+    declaration: 'export interface CanvasArtifact {\n    readonly id: string;\n    readonly title: string;\n    readonly kind: \'html\' | \'markdown\' | \'text\';\n    readonly content: string;\n    readonly updatedAt: string;\n    readonly attachments?: readonly CanvasArtifactAttachment[] | undefined;\n}',
+  },
+  {
+    name: 'CanvasArtifactAttachment',
+    declaration: 'export interface CanvasArtifactAttachment {\n    readonly name: string;\n    readonly path: string;\n    readonly mediaType: string;\n    readonly bytes: number;\n}',
+  },
+  {
+    name: 'CanvasArtifactSummary',
+    declaration: 'export interface CanvasArtifactSummary {\n    readonly id: string;\n    readonly title: string;\n    readonly kind: CanvasArtifact[\'kind\'];\n    readonly updatedAt: string;\n    readonly attachments?: readonly CanvasArtifactAttachment[] | undefined;\n}',
+  },
+  {
+    name: 'CanvasAttachmentStream',
+    declaration: 'export interface CanvasAttachmentStream {\n    readonly stream: ReadableStream<Uint8Array>;\n    readonly mediaType: string;\n    readonly bytes: number;\n}',
+  },
+  {
+    name: 'CanvasBodyStream',
+    declaration: 'export interface CanvasBodyStream {\n    readonly stream: ReadableStream<Uint8Array>;\n    readonly mediaType: string;\n    readonly bytes: number;\n    readonly filename: string;\n}',
+  },
+  {
+    name: 'CanvasDemoRequest',
+    declaration: 'export interface CanvasDemoRequest {\n    readonly sessionId: string;\n}',
+  },
+  {
+    name: 'CanvasDemoResult',
+    declaration: 'export interface CanvasDemoResult {\n    readonly ok: boolean;\n    readonly message: string;\n}',
+  },
+  {
+    name: 'CanvasGetRequest',
+    declaration: 'export interface CanvasGetRequest {\n    readonly sessionId: string;\n    readonly id: string;\n}',
+  },
+  {
+    name: 'CanvasGetResult',
+    declaration: 'export interface CanvasGetResult {\n    readonly ok: boolean;\n    readonly artifact: CanvasArtifact | null;\n    readonly message: string;\n}',
+  },
+  {
+    name: 'CanvasSelectRequest',
+    declaration: 'export interface CanvasSelectRequest {\n    readonly sessionId: string;\n    readonly id: string | null;\n}',
+  },
+  {
+    name: 'CanvasSelectResult',
+    declaration: 'export interface CanvasSelectResult {\n    readonly ok: boolean;\n    readonly selected: string | null;\n    readonly message: string;\n}',
+  },
+  {
+    name: 'CanvasState',
+    declaration: 'export interface CanvasState {\n    readonly artifacts: readonly CanvasArtifactSummary[];\n    readonly selected: string | null;\n    readonly rev: number;\n}',
+  },
+  {
+    name: 'CanvasStateRequest',
+    declaration: 'export interface CanvasStateRequest {\n    readonly sessionId: string;\n}',
+  },
+  {
+    name: 'CanvasToolArgs',
+    declaration: 'export interface CanvasToolArgs {\n    readonly op: \'write\' | \'update\' | \'get\' | \'list\' | \'select\' | \'remove\' | \'clear\' | \'demo\';\n    readonly id?: string;\n    readonly title?: string;\n    readonly kind?: \'html\' | \'markdown\' | \'text\';\n    readonly content?: string;\n    readonly contentPath?: string;\n    readonly attachments?: readonly CanvasToolAttachmentInput[];\n}',
+  },
+  {
+    name: 'CanvasToolAttachmentInput',
+    declaration: 'export interface CanvasToolAttachmentInput {\n    readonly name: string;\n    readonly path: string;\n}',
   },
   {
     name: 'ClientArtifactBaseline',

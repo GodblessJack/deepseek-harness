@@ -7,6 +7,7 @@
  */
 
 import { Service, type Context } from '@deepseek-ai/cordis'
+import z from '@deepseek-ai/schemastery'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import type { ToolRunContext, ToolDefinition } from '@deepseek-ai/dsh-tools'
 import type CanvasService from '@deepseek-ai/dsh-host-canvas'
@@ -26,15 +27,6 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 
-const DEFAULT_CONFIG: KgConfig = {
-  apiUrlEnv: 'RAGFLOW_API_URL',
-  apiKeyEnv: 'RAGFLOW_API_KEY',
-  hubLabel: '知识图谱',
-  libraries: [],
-  maxNodesPerLibrary: 0,
-  titlePrefix: 'DSH',
-}
-
 /** Per-request timeout for RAGFlow calls; graphs can be large but not unbounded. */
 const REQUEST_TIMEOUT_MS = 30_000
 
@@ -42,12 +34,21 @@ const REQUEST_TIMEOUT_MS = 30_000
 export class KgService extends Service {
   static inject = ['tools', 'canvas', 'credentials']
 
+  static Config = z.object({
+    apiUrlEnv: z.string().default('RAGFLOW_API_URL'),
+    apiKeyEnv: z.string().default('RAGFLOW_API_KEY'),
+    hubLabel: z.string().default('知识图谱'),
+    libraries: z.array(z.string()).default([]),
+    maxNodesPerLibrary: z.number().default(0),
+    titlePrefix: z.string().default('DSH'),
+  }) as z<KgConfig>
+
   readonly config: KgConfig
 
   /** @param ctx - host context carrying the tool registry, canvas service, and credentials. */
-  constructor(ctx: Context, config: Partial<KgConfig>) {
+  constructor(ctx: Context, config: KgConfig) {
     super(ctx, 'kg')
-    this.config = { ...DEFAULT_CONFIG, ...config }
+    this.config = config
   }
 
   /** No session events: the artifact is the durable output and the tool's
@@ -147,8 +148,8 @@ export class KgService extends Service {
         // canvas panel re-render live (it polls rev) instead of piling up
         // one artifact per call — knowledge updates land as a graph update.
         const prior = canvas.state({ sessionId }).artifacts.find(artifact => artifact.title === title)
-        const out = await canvas.write({
-          sessionId,
+        const out = await canvas.operate(sessionId, {
+          op: 'write',
           title,
           kind: 'html',
           content: html,

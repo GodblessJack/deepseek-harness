@@ -110,7 +110,14 @@ async function harness(values: Record<string, string>): Promise<{ ctx: Context; 
   await ctx.plugin(StorageDomain, { backend: 'json' })
   await ctx.plugin(FakeCredentials, values)
   await ctx.plugin(CanvasService)
-  await ctx.plugin(KgService, {})
+  await ctx.plugin(KgService, {
+    apiUrlEnv: 'RAGFLOW_API_URL',
+    apiKeyEnv: 'RAGFLOW_API_KEY',
+    hubLabel: '知识图谱',
+    libraries: [],
+    maxNodesPerLibrary: 0,
+    titlePrefix: 'DSH',
+  })
   return { ctx, kg: ctx.get('kg') as KgService }
 }
 
@@ -257,9 +264,10 @@ describe('kg_graph tool', () => {
     expect(state.artifacts).toHaveLength(1)
     const artifact = state.artifacts[0]
     expect(artifact?.kind).toBe('html')
-    expect(artifact?.content).toContain('window.__KG__')
-    expect(artifact?.content).toContain('"name":"故障库"')
-    const emptyLib = /"id":"lib-empty","name":"空库"[\s\S]*?"empty":true/.exec(artifact?.content ?? '')
+    const content = canvas.get({ sessionId: 's1', id: artifact?.id ?? '' }).artifact?.content ?? ''
+    expect(content).toContain('window.__KG__')
+    expect(content).toContain('"name":"故障库"')
+    const emptyLib = /"id":"lib-empty","name":"空库"[\s\S]*?"empty":true/.exec(content)
     expect(emptyLib).not.toBeNull()
   })
 
@@ -271,7 +279,8 @@ describe('kg_graph tool', () => {
     const { message, ctx } = await runTool({ RAGFLOW_API_URL: baseUrl, RAGFLOW_API_KEY: 'k' }, { library: '设备运维' })
     expect(message).toContain('设备运维')
     const canvas = ctx.get('canvas') as CanvasService
-    const content = canvas.state({ sessionId: 's1' }).artifacts[0]?.content ?? ''
+    const id = canvas.state({ sessionId: 's1' }).artifacts[0]?.id ?? ''
+    const content = canvas.get({ sessionId: 's1', id }).artifact?.content ?? ''
     expect(content).toContain('设备运维')
     expect(content).not.toContain('"name":"故障库"')
 
@@ -300,6 +309,7 @@ describe('kg_graph tool', () => {
     const canvas = ctx.get('canvas') as CanvasService
     const state = canvas.state({ sessionId: 's1' })
     expect(state.artifacts).toHaveLength(1)
-    expect(state.artifacts[0]?.content).toContain('新实体')
+    const refreshed = canvas.get({ sessionId: 's1', id: state.artifacts[0]?.id ?? '' })
+    expect(refreshed.artifact?.content).toContain('新实体')
   })
 })

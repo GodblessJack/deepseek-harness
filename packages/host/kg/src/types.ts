@@ -84,12 +84,16 @@ export interface KgAssemblyResult {
 
 /** Plugin config as declared in cordis.yml; env names are references, never values. */
 export interface KgConfig {
+  /** Credential-reference name holding the RAGFlow API base URL. */
   readonly apiUrlEnv: string
+  /** Credential-reference name holding the RAGFlow API key. */
   readonly apiKeyEnv: string
+  /** Center-node label shown for the hub in the assembled graph. */
   readonly hubLabel: string
   /** Empty list means every dataset; otherwise a name/id whitelist. */
   readonly libraries: readonly string[]
   /** 0 keeps every node; larger values keep the N most-connected entities per library. */
   readonly maxNodesPerLibrary: number
+  /** Prefix of the canvas artifact title the tool writes. */
   readonly titlePrefix: string
 }

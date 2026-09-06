@@ -54,6 +54,16 @@
       config:
         maxNoteBytes: 8192
 
+    # Canvas side panel host: the canvas tool and the per-session artifact Remote.
+    - id: canvas
+      name: '@deepseek-ai/dsh-host-canvas'
+
+    # Knowledge-graph host: the kg_graph tool assembles every RAGFlow dataset
+    # graph into one hub artifact on the canvas. Credentials stay references:
+    # RAGFLOW_API_URL / RAGFLOW_API_KEY resolve per call via credentials-local.
+    - id: kg-graph
+      name: '@deepseek-ai/dsh-host-kg'
+
     # Browser Session export: `/export` command plus the shared download dialog.
     - id: session-log-download
       name: '@deepseek-ai/dsh-session-log-export'
@@ -282,6 +292,10 @@
     # assistant-message action strip, over the messageFeedback Remote.
     - id: ui-message-feedback
       name: '@deepseek-ai/dsh-client-ui-message-feedback'
+
+    # Canvas side panel browser half: the details panel and per-work cards.
+    - id: ui-canvas
+      name: '@deepseek-ai/dsh-client-ui-canvas'
 
     # Model selection: the /model popupSelect + composer seat over session.models.
     - id: ui-model-selection
