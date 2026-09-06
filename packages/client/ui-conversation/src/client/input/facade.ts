@@ -300,7 +300,11 @@ export class SessionInputShell implements SessionInput {
     return true
   }
 
-  /** Append ordered PDF draft ids unless an admission transaction is locked. */
+  /**
+   * Append ordered PDF draft ids unless an admission transaction is locked.
+   * @param ids - ordered PDF draft attachment ids.
+   * @returns whether the ids were accepted; busy admission phases refuse.
+   */
   addFiles(ids: readonly DraftAttachmentId[]): boolean {
     if (this.snapshot.phase === 'adjudicating' || this.snapshot.phase === 'submitting') return false
     if (ids.length === 0) return true

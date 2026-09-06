@@ -108,6 +108,7 @@ None; Conversation assembly and browser input state do not alter provider-side p
 <a id="known-limitations-and-deferred-work"></a>
 
 - **Only registered targets can render** — the shell deliberately has no implicit fallback target beyond the registered `chat` preference.
+- **A failed multi-file upload keeps the files already admitted** — PDF drafts upload in order during send; when one fails, earlier files remain in the session workspace `uploads/` tree and a retry stores under the next disambiguated name (`report-1.pdf`). Manual cleanup is required today.
 
 
 <a id="dev-note"></a>

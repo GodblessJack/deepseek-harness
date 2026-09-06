@@ -101,6 +101,7 @@ function browserDraftFile(file: File): FileDraftAttachment {
     kind: 'file',
     id: randomUUID() as DraftAttachmentId,
     file,
+    sizeText: uploadSizeText(file.size),
   }
 }
 

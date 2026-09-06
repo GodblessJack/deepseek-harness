@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   ComposerAttachmentsProps, FileDraftAttachment, ImageDraftAttachment,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { uploadSizeText } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { AttachmentRail } from '../AttachmentRail.tsx'
 import type { FileRailItem, ImageRailItem } from '../AttachmentRail.tsx'
 import { DropOverlay } from '../DropOverlay.tsx'
@@ -96,7 +95,7 @@ export function ComposerAttachments({
         kind: 'file' as const,
         id: attachment.id,
         name: attachment.file.name || t('file.pending'),
-        sizeText: uploadSizeText(attachment.file.size),
+        sizeText: attachment.sizeText,
         removeLabel: t('file.remove', { name: attachment.file.name }),
         attachment,
       }]), [attachments, t])

@@ -39,6 +39,12 @@ export interface FileDraftAttachment {
   kind: 'file'
   id: DraftAttachmentId
   file: File
+  /**
+   * Display size text, formatted once at intake with the same unit formatter
+   * as the upload reference line so a rendered chip and the model-visible line
+   * cannot drift.
+   */
+  sizeText: string
 }
 
 /** One browser-owned composer draft: a previewed image or an upload-bound file. */

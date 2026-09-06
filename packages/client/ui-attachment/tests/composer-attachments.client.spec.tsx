@@ -169,6 +169,7 @@ describe('ComposerAttachments', () => {
       kind: 'file',
       id: 'draft-pdf' as ComposerAttachment['id'],
       file: new File([new ArrayBuffer(1536)], 'doc.pdf', { type: 'application/pdf' }),
+      sizeText: '1.5 KB',
     }
     const image = attachment('draft-1', 'pixel.png')
     const view = render(<ComposerAttachments {...props({ attachments: [image, pdf], onRemoveFile })} />)
@@ -188,6 +189,7 @@ describe('ComposerAttachments', () => {
       kind: 'file',
       id: 'draft-pdf' as ComposerAttachment['id'],
       file: new File([Uint8Array.of(1)], 'notes.pdf', { type: 'application/pdf' }),
+      sizeText: '1 B',
     }
     const view = render(<ComposerAttachments {...props({ attachments: [pdf] })} />)
     const rail = view.getByRole('group', { name: '待发送附件' })

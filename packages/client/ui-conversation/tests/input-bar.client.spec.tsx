@@ -542,7 +542,7 @@ describe('attachment upload button', () => {
   })
 
   it('treats a file-only draft as sendable through the primary button', async () => {
-    const pdf = { kind: 'file' as const, id: 'file-1' as DraftAttachmentId, file: PDF() }
+    const pdf = { kind: 'file' as const, id: 'file-1' as DraftAttachmentId, file: PDF(), sizeText: '1 KB' }
     const result = bench({ attachments: [pdf] })
     expect(result.button.getAttribute('aria-label')).toBe('发送消息')
     expect(result.button.disabled).toBe(false)

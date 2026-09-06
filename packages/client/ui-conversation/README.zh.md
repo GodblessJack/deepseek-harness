@@ -108,6 +108,7 @@ selector 必须是 owner currency 的纯函数。非 null 返回值作为 `match
 <a id="known-limitations-and-deferred-work"></a>
 
 - **只有已注册 target 可以渲染**——除已注册的 `chat` 偏好外，shell 刻意不提供隐式 fallback target。
+- **多文件上传中途失败时，已上传成功的文件会留在会话工作区**——发送时 PDF 草稿按顺序上传，其中一个失败时，前面的文件已写入 `uploads/` 目录，重试会以下一个消歧名（`report-1.pdf`）另存。当前需手动清理。
 
 
 <a id="dev-note"></a>
