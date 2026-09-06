@@ -1,0 +1,154 @@
+# 入口（运维助手）grid-assistant 的 SDK 多轮演示组合（JSON-RPC stdio runtime）。
+# 路由业务定义不写在本文件：入口 persona 由驱动脚本从 preset 的 persona.md
+# （apps/cli/config/agent-presets/grid-assistant/persona.md，业务定义唯一位置）
+# 经 DSH_SYSTEM_PROMPT 注入；五个能力面的 persona 由下方委派行从各自 preset
+# 的 persona.md 读取（按仓库根目录解析，驱动以仓库根为 cwd 启动本组合）；
+# 技能目录取五个能力面 skills/ 的并集（GRID_ASSISTANT_SKILL_DIRS，驱动注入）。
+# stdout 保留给 JSON-RPC；诊断走 stderr。
+
+- id: sdk-jsonrpc-server
+  name: '@deepseek-ai/dsh-sdk-jsonrpc-server'
+  config:
+    maxTokensAsSuccess: !!js "process.env.DSH_MAX_TOKENS_AS_SUCCESS === undefined ? true : JSON.parse(process.env.DSH_MAX_TOKENS_AS_SUCCESS)"
+
+- id: credentials
+  name: '@deepseek-ai/dsh-credentials-local'
+
+- id: llm-deepseek
+  name: '@deepseek-ai/dsh-llm-deepseek'
+  config:
+    thinking: enabled
+    models:
+      - id: deepseek-v4-flash
+      - id: deepseek-v4-pro
+
+- id: subprocess
+  name: '@deepseek-ai/dsh-subprocess-local'
+
+- id: bash
+  name: '@deepseek-ai/dsh-bash-local'
+  config:
+    cwd: !!js process.env.DSH_CWD ?? process.cwd()
+    timeoutMs: 120000
+
+# 委派底座：subagent 服务 + spawn 提供者（子智能体为全新会话，不带本会话上下文）。
+- id: subagent
+  name: '@deepseek-ai/dsh-subagent'
+
+- id: subagent-spawn-in-process
+  name: '@deepseek-ai/dsh-subagent-spawn-in-process'
+  config:
+    providerName: spawn
+
+- id: agent-spine
+  name: '@deepseek-ai/dsh-agent-spine-demo'
+  config:
+    persona: !!js process.env.DSH_SYSTEM_PROMPT ?? 'You are a grid equipment operations assistant.'
+    workspaceContext: false
+    skills:
+      enabled: true
+      filesystem:
+        watch: false
+        includeDefaultRoots: false
+        # JSON array of the five capability faces' skill directories, set by
+        # the demo driver: the delegated children resolve their face's
+        # procedure skill through this session composition.
+        customSkillDirs: !!js "JSON.parse(process.env.GRID_ASSISTANT_SKILL_DIRS ?? '[]')"
+    toolBash:
+      enableRunInBackground: false
+    toolJobs: false
+
+# 五个能力面委派行（与 preset 同构）：spawn 子智能体的 persona 覆盖为对应
+# 能力面的 persona.md（引用不复制）；toolFilter.allow 把子智能体工具面钉在
+# 能力面行集（bash + 文件 + 技能）；前台一次性，结果由入口转述。
+- id: delegate-grid-qa
+  name: '@deepseek-ai/dsh-tool-subagent'
+  config:
+    provider: spawn
+    toolName: grid_qa
+    enableRunInBackground: false
+    maxDepth: 1
+    persona: !!js "process.getBuiltinModule('node:fs').readFileSync(process.getBuiltinModule('node:path').resolve(process.cwd(), 'apps/cli/config/agent-presets/grid-qa/persona.md'), 'utf8')"
+    toolFilter:
+      allow: [bash, read, read_image, write, edit, skill]
+
+- id: delegate-defect-inspector
+  name: '@deepseek-ai/dsh-tool-subagent'
+  config:
+    provider: spawn
+    toolName: defect_inspector
+    enableRunInBackground: false
+    maxDepth: 1
+    persona: !!js "process.getBuiltinModule('node:fs').readFileSync(process.getBuiltinModule('node:path').resolve(process.cwd(), 'apps/cli/config/agent-presets/defect-inspector/persona.md'), 'utf8')"
+    toolFilter:
+      allow: [bash, read, read_image, write, edit, skill]
+
+- id: delegate-fault-advisor
+  name: '@deepseek-ai/dsh-tool-subagent'
+  config:
+    provider: spawn
+    toolName: fault_advisor
+    enableRunInBackground: false
+    maxDepth: 1
+    persona: !!js "process.getBuiltinModule('node:fs').readFileSync(process.getBuiltinModule('node:path').resolve(process.cwd(), 'apps/cli/config/agent-presets/fault-advisor/persona.md'), 'utf8')"
+    toolFilter:
+      allow: [bash, read, read_image, write, edit, skill]
+
+- id: delegate-report-writer
+  name: '@deepseek-ai/dsh-tool-subagent'
+  config:
+    provider: spawn
+    toolName: report_writer
+    enableRunInBackground: false
+    maxDepth: 1
+    persona: !!js "process.getBuiltinModule('node:fs').readFileSync(process.getBuiltinModule('node:path').resolve(process.cwd(), 'apps/cli/config/agent-presets/report-writer/persona.md'), 'utf8')"
+    toolFilter:
+      allow: [bash, read, read_image, write, edit, skill]
+
+- id: delegate-kb-updater
+  name: '@deepseek-ai/dsh-tool-subagent'
+  config:
+    provider: spawn
+    toolName: kb_updater
+    enableRunInBackground: false
+    maxDepth: 1
+    persona: !!js "process.getBuiltinModule('node:fs').readFileSync(process.getBuiltinModule('node:path').resolve(process.cwd(), 'apps/cli/config/agent-presets/kb-updater/persona.md'), 'utf8')"
+    toolFilter:
+      allow: [bash, read, read_image, write, edit, skill]
+
+- id: sessions
+  name: '@deepseek-ai/dsh-session-persistence-jsonl'
+  config:
+    root: !!js process.env.DSH_SESSION_ROOT ?? './.sessions'
+    compression: !!js "process.env.DSH_SNAPSHOT === undefined ? 'zstd' : 'none'"
+
+- id: session-checkpoints
+  name: '@deepseek-ai/dsh-session-checkpoint-policy'
+
+- id: fs-local
+  name: '@deepseek-ai/dsh-fs-local'
+  config:
+    cwd: !!js process.env.DSH_CWD ?? process.cwd()
+
+- id: fs-observation-policy
+  name: '@deepseek-ai/dsh-fs-observation-policy'
+
+# Attachment store: `tool-fs` registers `read_image` only while one is mounted,
+# and the delegation rows' `toolFilter.allow` names the face row set including
+# `read_image` — without this row child startup fails loud on an unknown tool.
+- id: attachments
+  name: '@deepseek-ai/dsh-attachment-local'
+
+- id: tool-fs
+  name: '@deepseek-ai/dsh-tool-fs'
+
+- id: token-meter
+  name: '@deepseek-ai/dsh-token-meter'
+
+- id: compaction-basic
+  name: '@deepseek-ai/dsh-compaction-basic'
+  config:
+    thresholdRatio: 0.8
+    retainRatio: 0.16
+    maxTokens: 8192
+    compactionRetries: 1

@@ -1,0 +1,106 @@
+# 入口（运维助手）grid-assistant 的 headless 一次性演示 overlay（dsh
+# --profile headless --patch 本文件 "用户消息"）。业务定义不写在这里：入口
+# persona 从 preset 的 persona.md（apps/cli/config/agent-presets/
+# grid-assistant/persona.md，路由业务定义唯一位置）读取；五个能力面的
+# persona 由下方委派行从各自 preset 的 persona.md 读取（能力面业务定义唯一
+# 位置）；技能目录取五个能力面 skills/ 的并集。headless 无 preset roster
+# （会话不加入 preset），故入口的行集在本 overlay 内复刻：能力面委派行 +
+# 关闭通用委派与 web 检索。路径按「仓库根目录启动」解析（process.cwd()），
+# 演示命令均从仓库根执行。
+
+# 入口调度 persona：preset 的 persona.md（路由表/图像消歧/兜底/全链存疑中止）。
+- id: system-prompt
+  config:
+    persona: !!js "process.getBuiltinModule('node:fs').readFileSync(process.getBuiltinModule('node:path').resolve(process.cwd(), 'apps/cli/config/agent-presets/grid-assistant/persona.md'), 'utf8')"
+
+# 五个能力面技能目录的并集：被委派子智能体在本会话组合下解析技能目录，
+# 各自的面流程技能（与 ragflow-dataset-ingest 符号链接）经此挂载。
+# includeDefaultRoots: false 排除项目/用户技能根。
+- id: skill-filesystem
+  config:
+    includeDefaultRoots: false
+    customSkillDirs:
+      - !!js "process.getBuiltinModule('node:path').resolve(process.cwd(), 'apps/cli/config/agent-presets/grid-qa/skills')"
+      - !!js "process.getBuiltinModule('node:path').resolve(process.cwd(), 'apps/cli/config/agent-presets/defect-inspector/skills')"
+      - !!js "process.getBuiltinModule('node:path').resolve(process.cwd(), 'apps/cli/config/agent-presets/fault-advisor/skills')"
+      - !!js "process.getBuiltinModule('node:path').resolve(process.cwd(), 'apps/cli/config/agent-presets/report-writer/skills')"
+      - !!js "process.getBuiltinModule('node:path').resolve(process.cwd(), 'apps/cli/config/agent-presets/kb-updater/skills')"
+
+# 宽松型兜底走模型通用知识，外部网页检索不属于三层出处中任何一层（同各能力面）。
+- id: tool-web
+  disabled: true
+
+# 仓库的编码工作区指令与运维入口无关。
+- id: agent-instructions
+  disabled: true
+
+# 入口只经五个能力面委派工具路由（组合即策略）：通用 subagent/subagent_fork
+# 与其续聊控制工具关闭，入口与被委派子智能体都不可用。
+- id: tool-subagent
+  disabled: true
+- id: tool-subagent-fork
+  disabled: true
+- id: tool-subagent-control
+  disabled: true
+- id: tool-subagent-list-agents
+  disabled: true
+
+# 五个能力面委派行（与 preset 同构）：spawn 子智能体的 persona 覆盖为对应
+# 能力面的 persona.md（业务定义唯一位置，引用不复制）；toolFilter.allow 把
+# 子智能体工具面钉在各能力面的行集（bash + 文件 + 技能），委派工具对子
+# 智能体不可见（不再委派）；前台一次性，取回结果由入口转述。
+- insert:
+    - id: delegate-grid-qa
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: spawn
+        toolName: grid_qa
+        enableRunInBackground: false
+        maxDepth: 1
+        persona: !!js "process.getBuiltinModule('node:fs').readFileSync(process.getBuiltinModule('node:path').resolve(process.cwd(), 'apps/cli/config/agent-presets/grid-qa/persona.md'), 'utf8')"
+        toolFilter:
+          allow: [bash, read, read_image, write, edit, skill]
+
+    - id: delegate-defect-inspector
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: spawn
+        toolName: defect_inspector
+        enableRunInBackground: false
+        maxDepth: 1
+        persona: !!js "process.getBuiltinModule('node:fs').readFileSync(process.getBuiltinModule('node:path').resolve(process.cwd(), 'apps/cli/config/agent-presets/defect-inspector/persona.md'), 'utf8')"
+        toolFilter:
+          allow: [bash, read, read_image, write, edit, skill]
+
+    - id: delegate-fault-advisor
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: spawn
+        toolName: fault_advisor
+        enableRunInBackground: false
+        maxDepth: 1
+        persona: !!js "process.getBuiltinModule('node:fs').readFileSync(process.getBuiltinModule('node:path').resolve(process.cwd(), 'apps/cli/config/agent-presets/fault-advisor/persona.md'), 'utf8')"
+        toolFilter:
+          allow: [bash, read, read_image, write, edit, skill]
+
+    - id: delegate-report-writer
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: spawn
+        toolName: report_writer
+        enableRunInBackground: false
+        maxDepth: 1
+        persona: !!js "process.getBuiltinModule('node:fs').readFileSync(process.getBuiltinModule('node:path').resolve(process.cwd(), 'apps/cli/config/agent-presets/report-writer/persona.md'), 'utf8')"
+        toolFilter:
+          allow: [bash, read, read_image, write, edit, skill]
+
+    - id: delegate-kb-updater
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: spawn
+        toolName: kb_updater
+        enableRunInBackground: false
+        maxDepth: 1
+        persona: !!js "process.getBuiltinModule('node:fs').readFileSync(process.getBuiltinModule('node:path').resolve(process.cwd(), 'apps/cli/config/agent-presets/kb-updater/persona.md'), 'utf8')"
+        toolFilter:
+          allow: [bash, read, read_image, write, edit, skill]

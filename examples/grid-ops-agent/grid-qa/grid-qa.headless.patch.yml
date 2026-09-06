@@ -1,0 +1,28 @@
+# 知识问答智能体 grid-qa 的 headless 一次性演示 overlay（dsh --profile headless
+# --patch 本文件 "问题"）。业务定义不写在这里：persona 从 preset 的 persona.md
+# （apps/cli/config/agent-presets/grid-qa/persona.md，业务定义唯一位置）读取；
+# 检索流程技能与 ragflow-dataset-ingest 技能经 customSkillDirs 挂载，与 preset
+# 面一致。路径按「仓库根目录启动」解析（process.cwd()），演示命令均从仓库根执行。
+
+# 角色/策略/出处标注规则：preset 的 persona.md（grid-qa 业务定义唯一位置）。
+- id: system-prompt
+  config:
+    persona: !!js "process.getBuiltinModule('node:fs').readFileSync(process.getBuiltinModule('node:path').resolve(process.cwd(), 'apps/cli/config/agent-presets/grid-qa/persona.md'), 'utf8')"
+
+# 与 preset 相同的技能根：preset 的 skills/ 目录（grid-qa-retrieval +
+# ragflow-dataset-ingest 符号链接）；includeDefaultRoots: false 排除项目/用户
+# 技能根，技能目录只剩这两个。patch 整体替换 config，其余字段取默认。
+- id: skill-filesystem
+  config:
+    includeDefaultRoots: false
+    customSkillDirs:
+      - !!js "process.getBuiltinModule('node:path').resolve(process.cwd(), 'apps/cli/config/agent-presets/grid-qa/skills')"
+
+# 宽松型策略的兜底是「模型通用电力知识 + 警示标注」；外部网页检索的来源
+# 不属于三层出处中的任何一层，关闭。
+- id: tool-web
+  disabled: true
+
+# 仓库的编码工作区指令与知识问答无关。
+- id: agent-instructions
+  disabled: true

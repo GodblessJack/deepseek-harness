@@ -1,0 +1,7 @@
+{
+  "name": "grid-ops-agent-example",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Runnable demo: 电网设备运维智能体（grid equipment O&M agents）on dsh presets — 知识问答 grid-qa first."
+}

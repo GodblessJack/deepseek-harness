@@ -1,0 +1,41 @@
+{"record_type": "defect", "time": "2026-06-02T08:57:00+08:00", "equipment": "110kV城东变1号主变", "defect_type": "红外发热", "part": "套管接线端子", "severity": "一般", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-06-03T08:35:00+08:00", "equipment": "110kV东郊变110kV隔离开关", "defect_type": "红外发热", "part": "触头接触面", "severity": "危急", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-06-07T12:40:00+08:00", "equipment": "110kV东郊变站用变", "defect_type": "渗漏油", "part": "放油塞", "severity": "一般", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-06-08T14:55:00+08:00", "equipment": "220kV河西变220kV断路器", "defect_type": "绝缘破损", "part": "支柱瓷套", "severity": "严重", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-06-10T11:08:00+08:00", "equipment": "110kV城东变1号主变", "defect_type": "渗漏油", "part": "油枕呼吸器", "severity": "一般", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-06-11T16:25:00+08:00", "equipment": "35kV城南线电缆终端", "defect_type": "红外发热", "part": "终端应力锥", "severity": "严重", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-06-14T17:01:00+08:00", "equipment": "220kV河西变GIS 110kV间隔", "defect_type": "SF6气体泄漏", "part": "断路器气室法兰", "severity": "危急", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-06-17T14:06:00+08:00", "equipment": "220kV河西变GIS 110kV间隔", "defect_type": "SF6气体泄漏", "part": "母线筒接头", "severity": "严重", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-06-18T09:17:00+08:00", "equipment": "220kV河西变GIS 220kV间隔", "defect_type": "SF6气体泄漏", "part": "盆式绝缘子", "severity": "一般", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-06-18T13:55:00+08:00", "equipment": "35kV城南线电缆终端", "defect_type": "红外发热", "part": "终端应力锥", "severity": "严重", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-06-19T12:05:00+08:00", "equipment": "110kV城东变1号主变", "defect_type": "渗漏油", "part": "套管法兰", "severity": "严重", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-06-21T08:46:00+08:00", "equipment": "110kV城东变2号主变", "defect_type": "外观锈蚀", "part": "本体外壳", "severity": "一般", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-06-22T17:10:00+08:00", "equipment": "110kV城东变2号主变", "defect_type": "异响", "part": "散热器风机", "severity": "一般", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-06-23T17:32:00+08:00", "equipment": "110kV城东变1号主变", "defect_type": "渗漏油", "part": "套管法兰", "severity": "严重", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-06-27T15:53:00+08:00", "equipment": "35kV城北线电缆终端", "defect_type": "红外发热", "part": "接地线连接点", "severity": "一般", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-06-28T14:49:00+08:00", "equipment": "110kV东郊变110kV隔离开关", "defect_type": "红外发热", "part": "导电带连接处", "severity": "严重", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-07-02T10:06:00+08:00", "equipment": "35kV城南线电缆终端", "defect_type": "红外发热", "part": "终端应力锥", "severity": "严重", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-07-02T17:14:00+08:00", "equipment": "110kV城东变1号主变", "defect_type": "渗漏油", "part": "油枕呼吸器", "severity": "一般", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-07-03T16:42:00+08:00", "equipment": "110kV东郊变110kV隔离开关", "defect_type": "红外发热", "part": "导电带连接处", "severity": "严重", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-07-09T16:13:00+08:00", "equipment": "35kV城南线电缆终端", "defect_type": "红外发热", "part": "终端应力锥", "severity": "严重", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-07-11T15:06:00+08:00", "equipment": "110kV城东变1号主变", "defect_type": "渗漏油", "part": "套管法兰", "severity": "严重", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-07-11T17:02:00+08:00", "equipment": "110kV城东变2号主变", "defect_type": "异响", "part": "散热器风机", "severity": "一般", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-07-13T14:01:00+08:00", "equipment": "35kV城北线电缆终端", "defect_type": "红外发热", "part": "接地线连接点", "severity": "一般", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-07-13T15:36:00+08:00", "equipment": "110kV东郊变35kV电容器组", "defect_type": "外观锈蚀", "part": "框架", "severity": "一般", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-07-14T16:13:00+08:00", "equipment": "220kV河西变220kV断路器", "defect_type": "外观锈蚀", "part": "机构箱", "severity": "一般", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-07-16T15:38:00+08:00", "equipment": "35kV城南线电缆终端", "defect_type": "红外发热", "part": "接线端子压接处", "severity": "危急", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-07-19T08:03:00+08:00", "equipment": "220kV河西变GIS 110kV间隔", "defect_type": "SF6气体泄漏", "part": "断路器气室法兰", "severity": "危急", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-07-22T17:26:00+08:00", "equipment": "110kV东郊变35kV避雷器", "defect_type": "绝缘破损", "part": "复合外套", "severity": "严重", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-07-24T08:11:00+08:00", "equipment": "220kV河西变GIS 110kV间隔", "defect_type": "SF6气体泄漏", "part": "母线筒接头", "severity": "严重", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-07-26T11:41:00+08:00", "equipment": "110kV城东变2号主变", "defect_type": "异响", "part": "散热器风机", "severity": "一般", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-08-04T14:52:00+08:00", "equipment": "110kV城东变2号主变", "defect_type": "异响", "part": "散热器风机", "severity": "一般", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-08-09T15:10:00+08:00", "equipment": "35kV城南线电缆终端", "defect_type": "红外发热", "part": "终端应力锥", "severity": "严重", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-08-14T08:34:00+08:00", "equipment": "110kV东郊变站用变", "defect_type": "渗漏油", "part": "放油塞", "severity": "一般", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-08-17T09:02:00+08:00", "equipment": "220kV河西变220kV断路器", "defect_type": "外观锈蚀", "part": "机构箱", "severity": "一般", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-08-17T11:37:00+08:00", "equipment": "220kV河西变GIS 110kV间隔", "defect_type": "SF6气体泄漏", "part": "母线筒接头", "severity": "严重", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-08-17T16:55:00+08:00", "equipment": "35kV城南线电缆终端", "defect_type": "红外发热", "part": "终端应力锥", "severity": "严重", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-08-19T14:50:00+08:00", "equipment": "110kV东郊变110kV隔离开关", "defect_type": "红外发热", "part": "触头接触面", "severity": "危急", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-08-21T12:55:00+08:00", "equipment": "110kV东郊变35kV电容器组", "defect_type": "外观锈蚀", "part": "框架", "severity": "一般", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-08-26T11:02:00+08:00", "equipment": "110kV城东变1号主变", "defect_type": "渗漏油", "part": "套管法兰", "severity": "严重", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-08-26T12:07:00+08:00", "equipment": "110kV城东变2号主变", "defect_type": "外观锈蚀", "part": "本体外壳", "severity": "一般", "source": "demo", "note": "14票演示数据"}
+{"record_type": "defect", "time": "2026-08-28T11:37:00+08:00", "equipment": "110kV城东变1号主变", "defect_type": "红外发热", "part": "套管接线端子", "severity": "一般", "source": "demo", "note": "14票演示数据"}
