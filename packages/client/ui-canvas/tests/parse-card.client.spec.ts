@@ -13,8 +13,6 @@ function settledResult(text: string): Parameters<typeof parseCanvasCard>[0] {
     callTime: 1,
     content: [{ type: 'text', text }] as ContentBlock[],
     isError: false,
-    callView: null,
-    resultView: null,
     subCalls: [],
   }
 }
@@ -26,7 +24,7 @@ describe('parseCanvasCard', () => {
   })
 
   it('returns null for a running call (no kind)', () => {
-    expect(parseCanvasCard({ callId: 'c', name: 'canvas', argsRaw: '{}', turn: 1, step: 1, time: 1, callView: null, subCalls: [] }))
+    expect(parseCanvasCard({ callId: 'c', name: 'canvas', argsRaw: '{}', turn: 1, step: 1, time: 1, subCalls: [] }))
       .toBeNull()
   })
 

@@ -11,10 +11,13 @@
     { "path": "../../../vendor/cordis" },
     { "path": "../../api/remotes/tsconfig.client.json" },
     { "path": "../../core/session" },
+    { "path": "../../session/session-turn-outline" },
     { "path": "../../host/canvas" },
     { "path": "../../typert/protocol" },
     { "path": "../../runtime-diagnostics/invariants" },
     { "path": "../ui-conversation" },
+    { "path": "../ui-renderer" },
+    { "path": "../ui-tool" },
     { "path": "../ui-slots" }
   ]
 }

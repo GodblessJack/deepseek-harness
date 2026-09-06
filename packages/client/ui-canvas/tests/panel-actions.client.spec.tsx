@@ -26,11 +26,15 @@ const injectedStubs = {
   useProjection: vi.fn(),
   useSessions: vi.fn(),
   useWorkspaces: vi.fn(),
+  useConversation: vi.fn(),
+  useChat: vi.fn(),
+  useTrajectory: vi.fn(),
+  useSessionPendingInteraction: vi.fn(),
   useInput: vi.fn(),
   inputActions: {
     setDraft: vi.fn(), addImages: vi.fn(), removeImage: vi.fn(), pruneImages: vi.fn(), submit: vi.fn(),
   },
-} as unknown as Pick<CanvasPanelProps, 'useSession' | 'useProjection' | 'useSessions' | 'useWorkspaces' | 'useInput' | 'inputActions'>
+} as unknown as Pick<CanvasPanelProps, 'useSession' | 'useProjection' | 'useSessions' | 'useWorkspaces' | 'useConversation' | 'useChat' | 'useTrajectory' | 'useSessionPendingInteraction' | 'useInput' | 'inputActions'>
 
 interface FakeView {
   artifacts?: { id: string; title: string; kind: 'html' | 'markdown' | 'text'; content: string }[]
