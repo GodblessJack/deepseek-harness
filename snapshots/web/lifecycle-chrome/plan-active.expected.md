@@ -32,6 +32,8 @@
 - textbox "Describe what you want to build... / commands, @ files or sessions"
 - button "Commands":
   - img
+- button "Upload images or PDF":
+  - img
 - 'button "Access mode, current: Workspace Write"': Workspace Write
 - button "Plan mode on, press to turn off": Plan
 - button "Select model, current DeepSeek-V4-Flash":

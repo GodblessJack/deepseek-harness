@@ -20,6 +20,10 @@
   - img
   - img
   - text: Context injection @deepseek-ai/dsh-system-prompt
+- button "Context injection skill-catalog":
+  - img
+  - img
+  - text: Context injection skill-catalog
 - paragraph: partial
 - status: Deep diving...
 - button "2 queued messages" [disabled] [expanded]
@@ -41,6 +45,8 @@
       - img
 - textbox "Cmd/Ctrl+Enter steers all queued messages"
 - button "Commands":
+  - img
+- button "Upload images or PDF":
   - img
 - 'button "Access mode, current: Workspace Write"': Workspace Write
 - button "Select model, current DeepSeek-V4-Flash":

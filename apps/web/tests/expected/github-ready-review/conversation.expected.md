@@ -40,6 +40,8 @@
 - textbox "Message or run a task... / commands, @ files or sessions"
 - button "Commands":
   - img
+- button "Upload images or PDF":
+  - img
 - 'button "Access mode, current: Read Only"': Read Only
 - button "Select model, current github-webhook-review-test/reply":
   - text: github-webhook-review-test/reply

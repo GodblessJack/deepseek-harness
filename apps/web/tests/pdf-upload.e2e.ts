@@ -15,7 +15,7 @@ import { chromium } from 'playwright'
 import { afterEach, describe, expect, it, onTestFailed } from 'vitest'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
+  assertFinalWorkspaceSnapshot, assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot, writeComposerDraft } from './support.ts'
@@ -148,6 +148,10 @@ describe('web e2e: PDF draft upload with prompt reference line', () => {
     expect(sessionId).toBeDefined()
     const stored = await readFile(join(scaffold!.workspaceCwd, 'workspace', 'uploads', PDF_NAME))
     expect(stored.equals(PDF_BYTES)).toBe(true)
+    // Independent oracle over the complete final workspace: catches any
+    // unexpected extra file the endpoint leaked, which the byte check above
+    // cannot see.
+    await assertFinalWorkspaceSnapshot(SNAPSHOT_DIR, join(scaffold!.workspaceCwd, 'workspace'))
 
     // The exact-text match: the composed prompt itself names the word, so a
     // substring wait would also resolve against the echoed user message.
@@ -183,6 +187,6 @@ describe('web e2e: PDF draft upload with prompt reference line', () => {
   }, 120_000)
 
   it.skipIf(MODE === 'record')('keeps the fixture inventory closed', async () => {
-    await assertFixtureInventory(SNAPSHOT_DIR, ['session.jsonl', 'ui.expected.md'])
+    await assertFixtureInventory(SNAPSHOT_DIR, ['session.jsonl', 'ui.expected.md', 'workspace.expected'])
   })
 })

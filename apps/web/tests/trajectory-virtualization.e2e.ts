@@ -332,7 +332,11 @@ describe('web e2e: Trajectory virtualization over tail-paged history', () => {
         return (window as Window & { __trajectoryScrollCalls?: number })
           .__trajectoryScrollCalls ?? 0
       })
-      expect(streamingScrollCalls).toBeLessThanOrEqual(5)
+      // Bound: one programmatic scroll per streamed layout growth, plus the
+      // single prepend settle. The bundled pdf skill's skill-catalog inject
+      // row adds one growth to every prompted turn, so the calibrated ceiling
+      // is 6; a virtualization regression still shows as a burst far above it.
+      expect(streamingScrollCalls).toBeLessThanOrEqual(6)
       expect(await mountedRows(page)).toBeLessThanOrEqual(MAX_MOUNTED_ROWS)
       expect({
         pageErrors: tripwire.pageErrors,

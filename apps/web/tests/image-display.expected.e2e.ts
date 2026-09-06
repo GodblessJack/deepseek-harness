@@ -106,7 +106,7 @@ it('accepts pasted images into the composer rail in order and removes them', asy
   // The rail is an accessible group holding the draft thumbnail (queried via
   // DOM: jsdom's a11y-visibility computation hides the composer subtree).
   const rail = await waitFor(() => {
-    const el = document.querySelector('[role="group"][aria-label="Pending images"]')
+    const el = document.querySelector('[role="group"][aria-label="Pending attachments"]')
     if (el === null) throw new Error('attachment rail missing')
     return el
   }, { timeout: 5_000 })
@@ -137,7 +137,7 @@ it('accepts pasted images into the composer rail in order and removes them', asy
   if (remove.length !== 2) throw new Error('remove buttons missing')
   for (const button of remove) fireEvent.click(button)
   await waitFor(() => {
-    expect(document.querySelector('[role="group"][aria-label="Pending images"]')).toBeNull()
+    expect(document.querySelector('[role="group"][aria-label="Pending attachments"]')).toBeNull()
   })
 
   // An unsupported file announces a transient toast (the inline strip is
@@ -186,7 +186,7 @@ it('accepts a whole-page drop under the limits-labeled overlay and refuses an ov
   // Dropping on the transcript area (not the composer card) lands in the rail.
   fireEvent.drop(document.body, { dataTransfer })
   await waitFor(() => {
-    const rail = document.querySelector('[role="group"][aria-label="Pending images"]')
+    const rail = document.querySelector('[role="group"][aria-label="Pending attachments"]')
     if (rail === null) throw new Error('attachment rail missing after page drop')
     expect([...rail.querySelectorAll('img')].map(img => img.getAttribute('alt'))).toEqual(['dropped.png'])
   }, { timeout: 5_000 })
@@ -206,7 +206,7 @@ it('accepts a whole-page drop under the limits-labeled overlay and refuses an ov
   const limitMessage = 'A message can include up to 20 images'
   const banner = await screen.findByText(limitMessage)
   expect(banner.closest('[role="alert"]')).not.toBeNull()
-  const rail = document.querySelector('[role="group"][aria-label="Pending images"]')
+  const rail = document.querySelector('[role="group"][aria-label="Pending attachments"]')
   expect([...(rail?.querySelectorAll('img') ?? [])]).toHaveLength(1)
 })
 
@@ -233,7 +233,7 @@ it('renders a host dimension rejection with the projected 2000px limit', async (
     },
   })
   await waitFor(() => {
-    expect(document.querySelector('[role="group"][aria-label="Pending images"]')).not.toBeNull()
+    expect(document.querySelector('[role="group"][aria-label="Pending attachments"]')).not.toBeNull()
   })
   fireEvent.keyDown(textarea, { key: 'Enter' })
 
@@ -245,5 +245,5 @@ it('renders a host dimension rejection with the projected 2000px limit', async (
       "text": "Image sides must be at most 2000px; downscale it and try again",
     }
   `)
-  expect(document.querySelector('[role="group"][aria-label="Pending images"]')).not.toBeNull()
+  expect(document.querySelector('[role="group"][aria-label="Pending attachments"]')).not.toBeNull()
 })
