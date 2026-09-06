@@ -225,13 +225,11 @@ export function uploadSizeText(bytes: number): string {
  * stored workspace path names the file (the uploaded name may have been
  * sanitized or disambiguated server-side), so the declared name stays out of
  * the line.
- * @param name - the browser file's declared name (sender context only).
  * @param path - the workspace-relative path the upload endpoint returned.
  * @param bytes - the stored byte count.
  * @returns the `[attached file] path (size)` reference line.
  */
-export function formatUploadReference(name: string, path: string, bytes: number): string {
-  void name
+export function formatUploadReference(path: string, bytes: number): string {
   return `[attached file] ${path} (${uploadSizeText(bytes)})`
 }
 
@@ -566,7 +564,7 @@ export class ConversationController extends Service implements IConversation {
     const references: string[] = []
     for (const file of files) {
       const { path, bytes } = await this.uploadDraftFile(sessionId, file)
-      references.push(formatUploadReference(file.file.name, path, bytes))
+      references.push(formatUploadReference(path, bytes))
     }
     return references
   }

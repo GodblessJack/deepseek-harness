@@ -81,13 +81,13 @@ describe('draft file admission', () => {
   })
 
   it('formatUploadReference is verbatim', () => {
-    expect(formatUploadReference('a.pdf', 'uploads/a.pdf', 1_048_576)).toBe('[attached file] uploads/a.pdf (1 MB)')
+    expect(formatUploadReference('uploads/a.pdf', 1_048_576)).toBe('[attached file] uploads/a.pdf (1 MB)')
   })
 
   it('formats binary sizes with one space and adaptive units', () => {
-    expect(formatUploadReference('b.pdf', 'uploads/b.pdf', 12_288)).toBe('[attached file] uploads/b.pdf (12 KB)')
-    expect(formatUploadReference('c.pdf', 'uploads/c.pdf', 1_572_864)).toBe('[attached file] uploads/c.pdf (1.5 MB)')
-    expect(formatUploadReference('d.pdf', 'uploads/d.pdf', 512)).toBe('[attached file] uploads/d.pdf (512 B)')
+    expect(formatUploadReference('uploads/b.pdf', 12_288)).toBe('[attached file] uploads/b.pdf (12 KB)')
+    expect(formatUploadReference('uploads/c.pdf', 1_572_864)).toBe('[attached file] uploads/c.pdf (1.5 MB)')
+    expect(formatUploadReference('uploads/d.pdf', 512)).toBe('[attached file] uploads/d.pdf (512 B)')
   })
 })
 
