@@ -71,6 +71,13 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("pdf"); ap.add_argument("--first", type=int, default=1); ap.add_argument("--last", type=int, default=0)
     args = ap.parse_args()
+    # Page arguments are 1-based: a non-positive --first or negative --last
+    # would silently select the wrong window (negative slices read from the
+    # end), so reject them before any engine runs.
+    if args.first < 1:
+        die(1, f"--first must be >= 1, got {args.first}")
+    if args.last < 0:
+        die(1, f"--last must be >= 0, got {args.last}")
     if args.last and args.first > args.last:
         die(1, no_pages_message(args.first, args.last, 0))
     engines = (("pypdf", via_pypdf), ("pdftotext", via_pdftotext))
